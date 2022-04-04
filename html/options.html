@@ -1,0 +1,141 @@
+<html lang="ja">
+
+<head>
+    <title>5chutil settings</title>
+    <meta charset="utf-8" />
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script src="../env.js"></script>
+    <script src="../js/5chutil_common.js"></script>
+    <script src="../js/options.js"></script>
+    <link rel="stylesheet" href="../css/options.css">
+</head>
+
+<body>
+    <header>
+        <h1>5chutil</h1>
+    </header>
+    <main>
+        <h2>動作設定</h2>
+        <section>
+            <div>
+                <ul>
+                    <li><input type="checkbox" id="stop" class="app stop" /><label for="stop">動作を停止する</label></li>
+                    <li><input type="checkbox" id="hideNgMsg" class="app hideNgMsg" /><label for="hideNgMsg">NGは非表示にする</label></li>
+                    <li><input type="checkbox" id="dontPopupMouseoverNgMsg" class="app dontPopupMouseoverNgMsg" /><label for="dontPopupMouseoverNgMsg">あぼーんをマウスオーバーでポップアップしない<br>(クリックではポップアップする)</label></li>
+                    <li><input type="checkbox" id="autoscrollWhenNewPostLoad" class="app autoscrollWhenNewPostLoad" /><label for="autoscrollWhenNewPostLoad">新着取得時にスクロールする</label></li>
+                    <li class="allowCof"><input type="checkbox" id="autoEmbedContents" class="app autoEmbedContents" /><label for="autoEmbedContents">自動でimgur等の外部データの埋め込み処理を行う</label></li>
+                    <li>IDが<input type="number" maxlength="2" class="app idManyCount" min="1" max="99" />個以上は赤くする&nbsp;<button type="button" class="app save idManyCount">保存</button></li>
+                    <li>Korokoro(SLIP)が<input type="number" maxlength="2" class="app koro2ManyCount" min="1" max="99" />個以上は赤くする&nbsp;<button type="button" class="app save koro2ManyCount">保存</button></li>
+                    <li>IP(SLIP)が<input type="number" maxlength="2" class="app ipManyCount" min="1" max="99" />個以上は赤くする&nbsp;<button type="button" class="app save ipManyCount">保存</button></li>
+                    <li>参照POSTが<input type="number" maxlength="2" class="app refPostManyCount" min="1" max="99" />個以上は赤くする&nbsp;<button type="button" class="app save refPostManyCount">保存</button></li>
+                    <li>自動ロード間隔<input type="number" maxlength="4" class="app autoloadIntervalSeconds" min="60" max="3600" />秒&nbsp;<button type="button" class="app save autoloadIntervalSeconds">保存</button></li>
+                    <li>非アクティブ時の許容自動ロード回数<input type="number" maxlength="2" class="app allowUnforcusAutoloadCount" min="1" max="99" />回&nbsp;<button type="button" class="app save allowUnforcusAutoloadCount">保存</button></li>
+                </ul>
+            </div>
+            <span class="notes">※ 設定変更時は5chページ要リロード</span>
+        </section>
+        <h2>NG 設定</h2>
+        <section>
+            <h3>NG Name</h3>
+            <section>
+                <form>
+                    <div>
+                        <select class="ng name" multiple>
+                        </select>
+                    </div>
+                    <div>
+                        <button type="button" class="ng name remove">削除</button>&nbsp;<button type="button" class="ng name clear">クリア</button>
+                    </div>
+                    <div>
+                        <span class="notes">※最大<span class="ng name max"></span>件まで、超過登録時に古いものから削除されます</span>
+                    </div>
+                </form>
+            </section>
+            <h3>NG Trip</h3>
+            <section>
+                <form>
+                    <div>
+                        <select class="ng trip" multiple>
+                        </select>
+                    </div>
+                    <div>
+                        <button type="button" class="ng trip remove">削除</button>&nbsp;<button type="button" class="ng trip clear">クリア</button>
+                    </div>
+                    <div>
+                        <span class="notes">※最大<span class="ng trip max"></span>件まで、超過登録時に古いものから削除されます</span>
+                    </div>
+                </form>
+            </section>
+            <h3>NG Korokoro(SLIP)</h3>
+            <section>
+                <form>
+                    <div>
+                        <select class="ng koro2" multiple>
+                        </select>
+                    </div>
+                    <div>
+                        <button type="button" class="ng korkoro2 remove">削除</button>&nbsp;<button type="button" class="ng koro2 clear">クリア</button>
+                    </div>
+                    <div>
+                        <span class="notes">※最大<span class="ng koro2 max"></span>件まで、超過登録時に古いものから削除されます</span>
+                    </div>
+                </form>
+            </section>
+            <h3>NG IP(SLIP)</h3>
+            <section>
+                <form>
+                    <div>
+                        <select class="ng ip" multiple>
+                        </select>
+                    </div>
+                    <div>
+                        <button type="button" class="ng ip remove">削除</button>&nbsp;<button type="button" class="ng ip clear">クリア</button>
+                    </div>
+                    <div>
+                        <span class="notes">※最大<span class="ng ip max"></span>件まで、超過登録時に古いものから削除されます</span>
+                    </div>
+                </form>
+            </section>
+            <h3>NG ID and DATE</h3>
+            <section>
+                <form>
+                    <div>
+                        <select class="ng dateAndID" multiple>
+                        </select>
+                    </div>
+                    <div>
+                        <input type="number" maxlength="2" class="ng dateAndID days" value="30" min="1" max="99" />日以前を全て<button type="button" class="ng dateAndID select">選択</button>
+                    </div>
+                    <div>
+                        <button type="button" class="ng dateAndID remove">削除</button>&nbsp;<button type="button" class="ng dateAndID clear">クリア</button>
+                    </div>
+                    <div>
+                        <span class="notes">※最大<span class="ng dateAndID max"></span>件まで、超過登録時に古いものから削除されます</span>
+                    </div>
+                </form>
+            </section>
+            <h3>NG Words</h3>
+            <section>
+                <form>
+                    <div>
+                        <select class="ng word" multiple>
+                        </select>
+                    </div>
+                    <div>
+                        <input type="text" maxlength="10" class="ng word input" /><button type="button" class="ng word add">追加</button>
+                    </div>
+                    <div>
+                        <button type="button" class="ng word remove">削除</button>&nbsp;<button type="button" class="ng word clear">クリア</button>
+                    </div>
+                    <div>
+                        <span class="notes">2文字以上9文字以下</span><br/>
+                        <span class="notes">※最大<span class="ng word max"></span>件まで、超過登録時に古いものから削除されます</span>
+                    </div>
+                </form>
+            </section>
+            <span class="notes">※ 設定変更時は5chページ要リロード</span>
+        </section>
+    </main>
+</body>
+
+</html>

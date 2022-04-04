@@ -1,0 +1,29 @@
+{
+  "name": "5chutil",
+  "version": "0.1.1.1",
+  "manifest_version": 2,
+  "description": "5ch に便利な機能を追加",
+  "icons": {
+    "16": "icon/icon_16.png",
+    "48": "icon/icon_48.png",
+    "128": "icon/icon_128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [ "*://*.5ch.net/test/read.cgi/*" ],
+      "js": [
+        "js/jquery-3.6.0.min.js",
+        "env.js",
+        "js/5chutil_common.js",
+        "js/5chutil.js"
+      ],
+      "css": [ "css/5chutil.css" ]
+    }
+  ],
+  "permissions": [ "storage" ],
+  "browser_action": {
+    "default_icon": "icon/icon_16.png",
+    "default_title":"5chutil設定",
+    "default_popup":"html/options.html"
+  }
+}
