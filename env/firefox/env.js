@@ -6,7 +6,7 @@ var GOCHUTIL = GOCHUTIL || {};
     _.env = {};
 
     // ====== 環境依存 userscript, chrome, firefox ======
-    _.env.allowCof = true;
+    _.env.allowRemoveScript = true;
 
     // ==================
     _.storage.get = async (key) => {

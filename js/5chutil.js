@@ -16,6 +16,7 @@ $(() => {
             return match && match[1] || $post.attr("id")
         }
 
+        // 投稿データの解析 <div class="post">.
         let parsePost = ($post) => {
             let spanName = $post.find("span.name").html();
             let num = $post.find("span.number").text();
@@ -56,6 +57,7 @@ $(() => {
             }
         }
 
+        // 解析データの取得.
         let getPostValue = ($post) => {
             let postId = parsePostId($post);
             if (!postValueCache[postId]) {
@@ -65,6 +67,7 @@ $(() => {
             return postValueCache[postId];
         }
 
+        // 投稿データがNGか判定.
         let matchNGPost = (value) => {
             return {
                 name: _.settings.ng.names.contains(value.name),
@@ -80,11 +83,13 @@ $(() => {
             }
         }
 
+        // 制御用リンクタグ生成.
         let createControlLink = (className, text, noLink = false) => {
             let alink = noLink ? text : `<a href="javascript:void(0)">${text}</a>`;
             return $(`<span class="control_link ${className}">[${alink}]</span>`);
         }
 
+        // NG制御用リンクタグ生成.
         let createNGControlLink = (ng, className, displayTargetName, titleTargetName) => {
             let controlClassName = ng ? "remove" : "add";
             let displayPrefix = ng ? "-" : "+";
@@ -98,9 +103,30 @@ $(() => {
             return link;
         }
 
-        let embedElem;
+        // 埋め込み処理.
+        let embedElem = ($a, $contents) => {
+            let $container = $contents;
+            if (!_.settings.app.get().autoEmbedContents) {
+                let cotentsHtml = $("<div>").append($container).html();
+                $container = $(`<span class="embed"><a href="javascript:void(0);" class="embed">コンテンツを埋め込む</a><span>`).attr("data-embed-content", cotentsHtml);
+            }
+            if ($a.next().length == 0) {
+                $a.parent().append("<br>").append($container);
+            } else if ($a.next().is("br")) {
+                $a.next().after($container);
+            } else {
+                $a.after($container).after("<br>");
+            }
+            $container.last().after("<br>");
+        }
 
-        if (_.env.allowCof) {
+        $(document).on("click", "span.embed a", function () {
+            let $span = $(this).closest("span.embed");
+            $span.after($span.attr("data-embed-content"));
+            $span.remove();
+        });
+
+        if (_.env.allowRemoveScript) {
             $("head").append(`<script>window.twttr = (function(d, s, id) {
                 var js, fjs = d.getElementsByTagName(s)[0],
                   t = window.twttr || {};
@@ -118,27 +144,13 @@ $(() => {
                 return t;
               }(document, "script", "twitter-wjs"));
               </script>`);
+        }
 
-            $(document).on("click", "span.embed a", function () {
-                let $span = $(this).closest("span.embed");
-                console.log($span.attr("data-embed-content"));
-                $span.after($span.attr("data-embed-content"));
-                $span.remove();
-            });
+        let twitterIdNumber = 0;
 
-            embedElem = ($a, $contents) => {
-                let $container = $contents;
-                if (!_.settings.app.get().autoEmbedContents) {
-                    let cotentsHtml = $("<div>").append($container).html();
-                    $container = $(`<span class="embed"><a href="javascript:void(0);" class="embed">コンテンツを埋め込む</a><span>`).attr("data-embed-content", cotentsHtml);
-                }
-                if ($a.next().is("br")) {
-                    $a.next().after($container);
-                } else {
-                    $a.after($container).after("<br>");
-                }
-                $container.last().after("<br>");
-            }
+        let parseImgurId = (href) => {
+            let match = href.match(/\/\/(i\.|)imgur.com\/(a\/|gallery\/|)([0-9a-zA-Z]{7}).*$/);
+            return match && (match[2] != "" ? "a/" : "") + match[3];
         }
 
         let initializePost = async ($post) => {
@@ -157,68 +169,67 @@ $(() => {
                 }
             });
 
-            if (_.env.allowCof) {
-                // imgur の埋め込み化.
-                $post.find("div.message a.directlink").each((i, e) => {
-                    let $a = $(e);
-                    let match = $a.attr("href").match(/\/\/(i\.|)imgur.com\/(a\/|gallery\/|)([0-9a-zA-Z]{7})$/);
-                    if (match && !$a.attr("data-embed")) {
-                        let imgurid = (match[2] != "" ? "a/" : "") + match[3];
+            // imgur の埋め込み化.
+            $post.find("div.message a.directlink").each((i, e) => {
+                let $a = $(e);
+                let imgurid = parseImgurId($a.attr("href"));
+                if (imgurid && !$a.attr("data-embed")) {
+                    if (_.env.allowRemoveScript) {
                         embedElem($a, $(`<blockquote class="imgur-embed-pub" lang="en" data-id="${imgurid}" data-context="false" ><a href="//imgur.com/${imgurid}"></a></blockquote><script async src="//s.imgur.com/min/embed.js" charset="utf-8"></script>`));
-                        $a.attr("data-embed", true);
+                    } else {
+                        // iframeで無理やり表示する.
+                        embedElem($a,
+                            $(`<iframe frameborder="0" scrolling="no" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true" class="imgur-embed-iframe-pub imgur-embed-iframe-pub-${imgurid.replace("/", "-")}-false-400"
+                            src="https://imgur.com/${imgurid}/embed?pub=true&amp;context=false&amp;w=400" id="imgur-embed-iframe-pub-${imgurid.replace("/", "-")}" style="height: 330px; width: 450px; margin: 10px 0px; padding: 0px;"></iframe>`));
                     }
-                });
-
-                // twitter の埋め込み化.
-                $post.find("div.message a.directlink").each((i, e) => {
-                    let $a = $(e);
-                    let match = $a.attr("href").match(/\/\/twitter.com\/[^\/]+?\/status\/([0-9]+).*$/);
-                    let arr = [];
-                    if (match && !$a.attr("data-embed") && $post.attr("id")) {
-                        let tweetid = match[1];
-                        let containerId = $post.attr("id") + "-" + i;
-                        let $container = $(`<div id="${containerId}" class="twitter embed"></div><script id="test">window.twttr.ready(() => twttr.widgets.createTweet("${tweetid}", document.getElementById("${containerId}"), {}));</script>`);
-                        embedElem($a, $container);
-                        $a.attr("data-embed", true);
-                    }
-                });
-
-                // youtube の埋め込み.
-                $post.find("div.message a.directlink").each((i, e) => {
-                    let $a = $(e);
-                    let match = $a.attr("href").match(/\/\/www.youtube.com\/.*[?&]v=([0-9a-zA-Z_\.+]+).*$/) || $a.attr("href").match(/\/\/youtu.be\/([0-9a-zA-Z_\.+]+)$/);
-                    if (match && !$a.attr("data-embed")) {
-                        embedElem($a, $(`<iframe src="//www.youtube.com/embed/${match[1]}" width="640" height="360" frameborder="0" allowfullscreen></iframe>`));
-                        $a.attr("data-embed", true);
-                    }
-                });
-
-                // instagram の埋め込み.
-                $post.find("div.message a.directlink").each((i, e) => {
-                    let $a = $(e);
-                    let match = $a.attr("href").match(/\/\/www.instagram.com\/(p|reel)\/([0-9a-zA-Z_\.+]+)\/*$/);
-                    if (match && !$a.attr("data-embed")) {
-                        embedElem($a, $(`<iframe src="https://www.instagram.com/${match[1]}/${match[2]}/embed" width="400" height="480" frameborder="0" scrolling="no" allowtransparency="true"></iframe>`));
-                        $a.attr("data-embed", true);
-                    }
-                });
-            }
-
-            // MailTo を別Link化
-            if ($post.find("span.mail").length == 0) {
-                $mailTo = $post.find("span.name").find("a");
-                let href = $mailTo.attr("href");
-                if (!href) {
-                    $post.find("span.name").after(`<span class="mail"></span>`)
-                } else if (href == "mailto:sage") {
-                    $post.find("span.name").after(`<span class="mail">[sage]</span>`)
-                } else {
-                    $post.find("span.name").after(`<span class="mail"><a href="${href}">[Mail]</a></span>`)
+                    $a.attr("data-embed", true);
                 }
-                $mailTo.contents().unwrap();
-                $mailTo.remove();
-            }
+            });
 
+            // twitter の埋め込み化.
+            $post.find("div.message a.directlink").each((i, e) => {
+                let $a = $(e);
+                let match = $a.attr("href").match(/\/\/twitter.com\/[^\/]+?\/status\/([0-9]+).*$/);
+                if (match && !$a.attr("data-embed") && $post.attr("id")) {
+                    let tweetid = match[1];
+                    let containerId = "tweet_container-" + $post.attr("id") + "-" + i;
+                    if (_.env.allowRemoveScript) {
+                        embedElem($a, $(`<div id="${containerId}" class="twitter embed"></div><script id="test">window.twttr.ready(() => twttr.widgets.createTweet("${tweetid}", document.getElementById("${containerId}"), { lang:"ja" }));</script>`));
+                    } else {
+                        // iframeで無理やり表示する.
+                        embedElem($a,
+                            $(`<iframe id="twitter-widget-${twitterIdNumber}" scrolling="no" frameborder="0" allowtransparency="true" allowfullscreen="true" class="" style="position: static; visibility: visible; width: 550px; height: 500px; display: block; flex-grow: 1;" title="Twitter Tweet"
+                            src="https://platform.twitter.com/embed/Tweet.html?dnt=false&amp;embedId=twitter-widget-${twitterIdNumber}&amp;frame=false&amp;hideCard=false&amp;hideThread=false&amp;id=${tweetid}&amp;lang=ja&amp;width=550px" data-tweet-id="${tweetid}"></iframe>`));
+                        twitterIdNumber++;
+                    }
+                    $a.attr("data-embed", true);
+                }
+            });
+
+            // instagram の埋め込み.
+            $post.find("div.message a.directlink").each((i, e) => {
+                let $a = $(e);
+                let match = $a.attr("href").match(/\/\/www.instagram.com\/(p|reel)\/([0-9a-zA-Z_\.+\-]+)\/*$/);
+                if (match && !$a.attr("data-embed")) {
+                    if (_.env.allowRemoveScript) {
+                        embedElem($a, $(`<blockquote class="instagram-media" data-instgrm-captioned data-instgrm-permalink="https://www.instagram.com/${match[1]}/${match[2]}/" style="width:450px;"></blockquote><script async src="//www.instagram.com/embed.js"></script>`));
+                    } else {
+                        // iframeで無理やり表示する.
+                        embedElem($a, $(`<iframe src="https://www.instagram.com/${match[1]}/${match[2]}/embed/captioned/" style="width:450px;" scrolling="no" frameborder="0" allowtransparency="true"></iframe>`));
+                    }
+                    $a.attr("data-embed", true);
+                }
+            });
+
+            // youtube の埋め込み.
+            $post.find("div.message a.directlink").each((i, e) => {
+                let $a = $(e);
+                let match = $a.attr("href").match(/\/\/(www|m)\.youtube.com\/.*[?&]v=(?<id>[0-9a-zA-Z_\.+]+).*$/) || $a.attr("href").match(/\/\/youtu.be\/(?<id>[0-9a-zA-Z_\.+]+)$/);
+                if (match && !$a.attr("data-embed")) {
+                    embedElem($a, $(`<iframe src="//www.youtube.com/embed/${match.groups["id"]}" width="640" height="360" scrolling="no" frameborder="0" allowfullscreen></iframe>`));
+                    $a.attr("data-embed", true);
+                }
+            });
 
             // MailTo を別Link化
             if ($post.find("span.mail").length == 0) {
@@ -255,11 +266,45 @@ $(() => {
             });
         }
 
+        // リモートスクリプトが使えない場合には、自力でメッセージ処理をしてiframeの高さ調整.
+        // サービス側の仕様が変わったら動かなくなるので、できればブラックボックスのままリモートスクリプトに処理させたい...
+        if (!_.env.allowRemoveScript) {
+            let findOwnerIFrame = (source) => Array.from(document.getElementsByTagName("iframe")).find(elm => elm["contentWindow"] == source);
+            window.addEventListener('message', function (e) {
+                if (e.origin.match(/^https?:\/\/platform\.twitter\.com$/)) {
+                    // twitter.
+                    if (e.data["twttr.embed"]?.id && e.data["twttr.embed"]?.method == "twttr.private.resize") {
+                        e.data["twttr.embed"]?.params?.filter(p => p.height).forEach(p => {
+                            // $(`iframe#${e.data["twttr.embed"].id}`).height(p.height);
+                            $(findOwnerIFrame(e.source)).height(p.height);
+                        });
+                    }
+                } else if (e.origin.match(/^https?:\/\/imgur\.com$/)) {
+                    // imgur.
+                    let data = JSON.parse(e?.data);
+                    if (data?.message == "resize_imgur" && data?.height && data?.width && data?.href) {
+                        // let imgurid = parseImgurId(data.href.replace(/\/embed?.*/, ""));
+                        // if (imgurid) {
+                        //    $(`iframe#imgur-embed-iframe-pub-${imgurid.replace("/", "-")}`).width(data.width).height(data.height);
+                        //}
+                        $(findOwnerIFrame(e.source)).width(data.width).height(data.height);
+                    }
+                } else if (e.origin.match(/^https?:\/\/www\.instagram\.com$/)) {
+                    // instagram.
+                    let data = JSON.parse(e?.data);
+                    if (data?.type == "MEASURE" && data?.details?.height) {
+                        $(findOwnerIFrame(e.source)).height(data.details.height);
+                    }
+                }
+            });
+        }
+
         // 処理中メッセージ.
         $("body").append(`<div id="processing_message" class="processing_container" style="display:none;"><div><span class="loader"></span><span class="message">処理中</span></div></div>`);
         let showProcessingMessage = () => $("#processing_message").css("display", "flex");
         let hideProcessingMessage = () => $("#processing_message").css("display", "none");
 
+        // スレッド処理.対象PostIDを指定可能
         let processThread = async (pids) => {
             let pidSet = pids?.reduce((p, c) => p.add(c), new Set());
             let ar = $("div.thread div.post").toArray().map(p => $(p))
@@ -269,6 +314,7 @@ $(() => {
                 showProcessingMessage();
             }
 
+            // 非同期で処理する.
             ar = ar.map($p => new Promise((resolve, reject) => {
                 setTimeout(() => {
                     processPost($p);
@@ -281,6 +327,7 @@ $(() => {
                 .then(() => hideProcessingMessage());
         }
 
+        // 投稿に対する処理.
         let processPost = ($post) => {
             initializePost($post);
 
@@ -673,11 +720,13 @@ $(() => {
         // 新着レスの取得と追加
         let fetching = false;
 
+        // 新着マーク削除.
         let removeNewPostMark = () => {
             $("div.post.new").addClass("removingnew");
             setTimeout(() => $("div.post.new.removingnew").removeClass("removingnew").removeClass("new"), 3000);
         }
 
+        // 新着レスの取得と追加処理.
         let fetchAndAppendNewPost = (callback) => {
             if (canAppendNewPost() && !fetching) {
                 let newPid = lastPostId() + 1;
@@ -702,7 +751,7 @@ $(() => {
                                 if (!displayItems.all && ((displayItems.last && displayItems.last > 0) || (displayItems.to && displayItems.to > 0))) {
                                     if (displayItems.last && displayItems.last > 0 && displayItems.last + 2 < postArray.length) {
                                         // 最新N件よりも多いので、余剰分を削除. 実際にはN+2件が表示される(>>1と最新N+1件)
-                                        var target = postArray.slice(1, postArray.length - displayItems.last - 1);
+                                        let target = postArray.slice(1, postArray.length - displayItems.last - 1);
                                         target.forEach(p => {
                                             $(p).next("br").remove();
                                             $(p).remove();
@@ -728,10 +777,12 @@ $(() => {
             }
         }
 
+        // 新着レス取得追加ボタン処理.
         $(document).on("click", "div.newposts span.appendnewposts a", function () {
             fetchAndAppendNewPost()
         });
 
+        // 自動更新処理用変数.
         let autoloadInterval = undefined;
         let unforcusFetchCount = 0;
 
@@ -759,6 +810,7 @@ $(() => {
             $("div.newposts span.autoload_newposts span.seconds_remaining").text(autoloadIntervalSeconds)
         }
 
+        // 自動更新のチェックボックス処理.
         $(document).on("change", "div.newposts span.autoload_newposts input[type='checkbox']", function () {
             $chk = $(this);
             if ($chk.is(":checked")) {
@@ -838,9 +890,13 @@ $(() => {
             return map;
         }
 
+        // key: id / value: [postId, postId, ...]
         let idMap = {};
+        // key: korokoro / value: [postId, postId, ...]
         let koro2Map = {};
+        // key: ip / value: [postId, postId, ...]
         let ipMap = {};
+        // key: postId / value: [ref postId, ref postId, ...]
         let refPostId = {};
         let pidSet = new Set();
 
@@ -899,7 +955,7 @@ $(() => {
         addRefData($("div.thread div.post"));
 
         // オブザーバーで追加されたノードに対する処理.
-        const target = $("body").get(0);
+        // レスのポップアップに対する処理.
         let popupPostObserver = new MutationObserver(records => {
             let addedNodes = Array.from(records).flatMap(r => Array.from(r.addedNodes));
             let popupPost = addedNodes.map(n => $(n))
@@ -909,6 +965,7 @@ $(() => {
             popupPost.forEach(processPost);
         });
 
+        // 新着レス等で追加/削除したノードに対する処理.
         let newPostObserver = new MutationObserver(records => {
             let addedNodes = Array.from(records).flatMap(r => Array.from(r.addedNodes));
             let removedNodes = Array.from(records).flatMap(r => Array.from(r.removedNodes));
@@ -934,13 +991,8 @@ $(() => {
         });
 
         // 監視の開始
-        popupPostObserver.observe($("body").get(0), {
-            childList: true
-        });
-
-        newPostObserver.observe($("div.thread").get(0), {
-            childList: true
-        })
+        popupPostObserver.observe($("body").get(0), { childList: true });
+        newPostObserver.observe($("div.thread").get(0), { childList: true })
 
         // 全Postに対して処理をする.
         processThread();

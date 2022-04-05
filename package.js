@@ -9,7 +9,7 @@ let main = async () => {
         }
     }
     let remove = (path) => {
-        if (!fs.existsSync(path)) {
+        if (fs.existsSync(path)) {
             fse.removeSync(path);
         }
     }
@@ -51,13 +51,15 @@ let main = async () => {
 
     // userscript
     mkdir("package/userscript");
+    remove("userscript/5chutil.userscript.js");
 
     let format = fs.readFileSync("env/userscript/format.js", "utf-8");
-
-    remove("5chutil.userscript.js");
+    // placeholder '//$[[FILE:(filepath)]]' を ファイルの内容に差し替える.
     let userScript = format.replace(/\/\/\$\[\[FILE:(.*?)\]\]/g, (match, c1) => fs.readFileSync(c1, "utf-8"));
     fs.writeFileSync("package/userscript/5chutil.userscript.js", userScript);
     copy("package/userscript/5chutil.userscript.js", "userscript/5chutil.userscript.js")
+
+    console.log("finish");
 };
 
 main();

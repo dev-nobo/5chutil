@@ -121,9 +121,6 @@ $(() => {
     };
 
     let main = () => {
-        if(!_.env.allowCof){
-            $(".allowCof").remove();
-        }
         _.initOptions();
     };
 
