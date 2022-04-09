@@ -159,7 +159,8 @@ var GOCHUTIL = GOCHUTIL || {};
         refPostManyCount: 3,
         newPostMarkDisplaySeconds: 30,
         autoloadIntervalSeconds: 60,
-        allowUnforcusAutoloadCount: 10
+        allowUnforcusAutoloadCount: 10,
+        waitSecondsForAppendNewPost: 10
     };
     _.settings = {
         ng: {

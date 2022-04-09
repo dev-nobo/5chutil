@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         5chutil
 // @namespace    5chutil
-// @version      0.1.1.3
+// @version      0.1.1.4
 // @description  5ch に NG等の機能を追加
 // @author       5chutil dev
 // @match        *://*.5ch.net/test/read.cgi/*

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         5chutil
 // @namespace    5chutil
-// @version      0.1.1.3
+// @version      0.1.1.4
 // @description  5ch に NG等の機能を追加
 // @author       5chutil dev
 // @match        *://*.5ch.net/test/read.cgi/*
@@ -40,6 +40,7 @@ var GOCHUTIL = GOCHUTIL || {};
     const gochutilcss = `
 :root {
     --wait-animation-span: 10s;
+    --wait-appendnew-animation-span: 10s;
 }
 
 div.message.abone span.abone {
@@ -94,14 +95,14 @@ div#img_popup img.popup_img {
 }
 
 div.message span.embed {
-    padding:5px;
+    padding: 5px;
     display: inline-block;
     border: 1px solid #464646;
     background-color: #ffffff;
     transition: background-color .3s ease-out;
 }
 
-div.message span.embed a{
+div.message span.embed a {
     color: #485269;
     text-decoration: none !important;
 }
@@ -110,12 +111,12 @@ div.message span.embed:hover {
     background-color: #eee;
 }
 
-a.hoveringprogress {
+.backgroundwidthprogress {
     position: relative;
     z-index: 0;
 }
 
-a.hoveringprogress::after {
+.backgroundwidthprogress::after {
     position: absolute;
     content: "";
     top: 0;
@@ -168,20 +169,33 @@ div.processing_container div span.message {
 
 span.appendnewposts {
     margin-left: 10px;
+    background-color: #fff;
+    transition: background-color .3s ease-out;
+    display: inline-block
 }
 
 span.appendnewposts a {
     color: #485269;
     display: inline-block;
-    background-color: #fff;
     width: 200px;
     padding: 10px;
     border: 1px solid #333;
-    transition: background-color .3s ease-out;
 }
 
-span.appendnewposts a:hover {
+span.appendnewposts:hover {
     background-color: #eee;
+}
+
+span.appendnewposts.disabled {
+    background-color: #ccc;
+}
+
+span.appendnewposts.disabled:hover {
+    background-color: #ccc;
+}
+
+span.appendnewposts.disabled a.backgroundwidthprogress::after {
+    animation: width calc(var(--wait-appendnew-animation-span)) linear !important;
 }
 
 span.autoload_newposts {
@@ -902,7 +916,8 @@ var GOCHUTIL = GOCHUTIL || {};
         refPostManyCount: 3,
         newPostMarkDisplaySeconds: 30,
         autoloadIntervalSeconds: 60,
-        allowUnforcusAutoloadCount: 10
+        allowUnforcusAutoloadCount: 10,
+        waitSecondsForAppendNewPost: 10
     };
     _.settings = {
         ng: {
@@ -1428,10 +1443,10 @@ $(() => {
                         if (timeoutHandles[popupId]) {
                             clearTimeout(timeoutHandles[popupId]);
                         }
-                        $a.addClass("hoveringprogress");
+                        $a.addClass("backgroundwidthprogress");
                         timeoutHandles[popupId] = setTimeout(() => {
                             timeoutHandles[popupId] = undefined;
-                            $a.removeClass("progrehoveringprogressss")
+                            $a.removeClass("backgroundwidthprogress")
                             innerProcess();
                         }, 1000);
                     } else {
@@ -1440,7 +1455,7 @@ $(() => {
                             clearTimeout(timeoutHandles[popupId]);
                         }
                         timeoutHandles[popupId] = undefined;
-                        $a.removeClass("hoveringprogress");
+                        $a.removeClass("backgroundwidthprogress");
                         innerProcess();
                     }
                 }
@@ -1453,7 +1468,7 @@ $(() => {
                     clearTimeout(timeoutHandles[popupId]);
                 }
                 timeoutHandles[popupId] = undefined;
-                $(this).removeClass("hoveringprogress");
+                $(this).removeClass("backgroundwidthprogress");
 
                 let $popup = $("body").find(`div#${popupId}`);
 
@@ -1694,7 +1709,14 @@ $(() => {
                         removeNewPostMark();
                         showProcessingMessage();
                         fetch(url)
-                            .then(response => response.arrayBuffer())
+                            .then(response => {
+                                if (response.ok) {
+                                    return response.arrayBuffer();
+                                }
+                                let err = new Error(`fetch response url:${response.url} code:${response.status}`);
+                                err.httpStatus = response.status;
+                                throw err;
+                            })
                             .then(ab => new TextDecoder(document.characterSet).decode(ab))
                             .then(txt => {
                                 let parser = new DOMParser();
@@ -1725,19 +1747,48 @@ $(() => {
 
                                     $("div.thread div.post:last").next("br").after($thread.html());
                                 }
+                            })
+                            .then(() => resolve())
+                            .catch(err => {
+                                if (err.httpStatus != 500) {
+                                    // データなしの場合500が返ってくるので、無視.
+                                    reject(err)
+                                } else {
+                                    resolve();
+                                }
+                            })
+                            .finally(() => {
                                 fetching = false;
                                 hideProcessingMessage();
-                            })
-                            .catch(e => reject(e))
-                            .then(() => resolve());
+                            });
                     }
                 }
             });
         }
 
+        let waitSecondsForAppendNewPost = _.settings.app.get().waitSecondsForAppendNewPost;
         // 新着レス取得追加ボタン処理.
         $(document).on("click", "div.newposts span.appendnewposts a", function () {
-            fetchAndAppendNewPost()
+            if (!$("div.newposts span.appendnewposts").hasClass("disabled")) {
+                fetchAndAppendNewPost()
+                    .then(() => $("div.newposts span.autoload_newposts span.error_msg span.msg").text())
+                    .catch(e => {
+                        if (e.httpStatus = 410) {
+                            // gone.
+                            $("div.newposts span.autoload_newposts span.error_msg span.msg").text("410 GONE が応答されました。しばらく待ちましょう。");
+                        }
+                    })
+                    .finally(() => {
+                        // 10 秒利用不可.
+                        document.documentElement.style.setProperty('--wait-appendnew-animation-span', `${waitSecondsForAppendNewPost}s`);
+                        $("div.newposts span.appendnewposts").addClass("disabled")
+                        $("div.newposts span.appendnewposts a").addClass("backgroundwidthprogress");
+                        setTimeout(() => {
+                            $("div.newposts span.appendnewposts").removeClass("disabled");
+                            $("div.newposts span.appendnewposts a").removeClass("backgroundwidthprogress");
+                        }, waitSecondsForAppendNewPost * 1000);
+                    });
+            }
         });
 
         // 自動更新処理用変数.
@@ -1796,11 +1847,20 @@ $(() => {
                         }
                         return;
                     }
-                    fetchAndAppendNewPost().then(() => {
-                        if (!canAppendNewPost()) {
-                            $chk.removeAttr("checked").prop('checked', false).trigger("change");
-                        }
-                    });
+                    fetchAndAppendNewPost()
+                        .catch(e => {
+                            if (e.httpStatus = 410) {
+                                // gone.
+                                $chk.removeAttr("checked").prop('checked', false).trigger("change");
+                                $("div.newposts span.autoload_newposts span.error_msg span.msg").text("410 GONE が応答されたため、オフにしました。");
+                            }
+                        })
+                        .then(() => {
+                            () => $("div.newposts span.autoload_newposts span.error_msg span.msg").text()
+                            if (!canAppendNewPost()) {
+                                $chk.removeAttr("checked").prop('checked', false).trigger("change");
+                            }
+                        });
                     //-hack for reflow
                     void $("div.newposts span.autoload_newposts").get(0).offsetWidth;
                     $("div.newposts span.autoload_newposts").addClass("waiting");
@@ -1971,7 +2031,7 @@ $(() => {
 
     _.init().then(r => {
         if (!_.settings.app.get().stop) {
-            if($("div.thread div.post").length != 0){
+            if ($("div.thread div.post").length != 0) {
                 // 現在この構造のHTMLしか対応してない.
                 main();
             }

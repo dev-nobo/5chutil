@@ -1,5 +1,6 @@
 :root {
     --wait-animation-span: 10s;
+    --wait-appendnew-animation-span: 10s;
 }
 
 div.message.abone span.abone {
@@ -54,14 +55,14 @@ div#img_popup img.popup_img {
 }
 
 div.message span.embed {
-    padding:5px;
+    padding: 5px;
     display: inline-block;
     border: 1px solid #464646;
     background-color: #ffffff;
     transition: background-color .3s ease-out;
 }
 
-div.message span.embed a{
+div.message span.embed a {
     color: #485269;
     text-decoration: none !important;
 }
@@ -70,12 +71,12 @@ div.message span.embed:hover {
     background-color: #eee;
 }
 
-a.hoveringprogress {
+.backgroundwidthprogress {
     position: relative;
     z-index: 0;
 }
 
-a.hoveringprogress::after {
+.backgroundwidthprogress::after {
     position: absolute;
     content: "";
     top: 0;
@@ -128,20 +129,33 @@ div.processing_container div span.message {
 
 span.appendnewposts {
     margin-left: 10px;
+    background-color: #fff;
+    transition: background-color .3s ease-out;
+    display: inline-block
 }
 
 span.appendnewposts a {
     color: #485269;
     display: inline-block;
-    background-color: #fff;
     width: 200px;
     padding: 10px;
     border: 1px solid #333;
-    transition: background-color .3s ease-out;
 }
 
-span.appendnewposts a:hover {
+span.appendnewposts:hover {
     background-color: #eee;
+}
+
+span.appendnewposts.disabled {
+    background-color: #ccc;
+}
+
+span.appendnewposts.disabled:hover {
+    background-color: #ccc;
+}
+
+span.appendnewposts.disabled a.backgroundwidthprogress::after {
+    animation: width calc(var(--wait-appendnew-animation-span)) linear !important;
 }
 
 span.autoload_newposts {
