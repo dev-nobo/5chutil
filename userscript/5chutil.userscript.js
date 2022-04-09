@@ -1971,7 +1971,10 @@ $(() => {
 
     _.init().then(r => {
         if (!_.settings.app.get().stop) {
-            main();
+            if($("div.thread div.post").length != 0){
+                // 現在この構造のHTMLしか対応してない.
+                main();
+            }
         }
     });
 });

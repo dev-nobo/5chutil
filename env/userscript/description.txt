@@ -32,3 +32,8 @@
 ---
 ## 動作確認環境
 - Chrome + TamperMonkey
+
+---
+[TamperMonkey版(ここ)](https://greasyfork.org/ja/scripts/441117-5chutil)
+[Chrome Addon版]https://chrome.google.com/webstore/detail/5chutil/ckcklnamohjkfhflhfgboeadbbfhnmif
+[Firefox Addon版]https://addons.mozilla.org/ja/firefox/addon/5chutil/
