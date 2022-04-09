@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         5chutil
 // @namespace    5chutil
-// @version      0.1.1.2
+// @version      0.1.1.3
 // @description  5ch に NG等の機能を追加
 // @author       5chutil dev
 // @match        *://*.5ch.net/test/read.cgi/*
@@ -22,7 +22,7 @@ var GOCHUTIL = GOCHUTIL || {};
     _.env = {};
 
     // ====== 環境依存 userscript, chrome, firefox ======
-    _.env.allowRemoveScript = true;
+    _.env.allowRemoteScript = true;
 
     // ==================
 
@@ -93,18 +93,29 @@ div#img_popup img.popup_img {
     z-index: 10;
 }
 
-div.message.abone span.abone_message a.hovering {
+div.message span.embed {
+    padding:5px;
+    display: inline-block;
+    border: 1px solid #464646;
+    background-color: #ffffff;
+    transition: background-color .3s ease-out;
+}
+
+div.message span.embed a{
+    color: #485269;
+    text-decoration: none !important;
+}
+
+div.message span.embed:hover {
+    background-color: #eee;
+}
+
+a.hoveringprogress {
     position: relative;
     z-index: 0;
 }
 
-div.message span.embed {
-    padding:5px;
-    display: inline-block;
-    border: 1px solid black;
-}
-
-div.message.abone span.abone_message a.hovering::after {
+a.hoveringprogress::after {
     position: absolute;
     content: "";
     top: 0;
@@ -1057,7 +1068,7 @@ $(() => {
             $span.remove();
         });
 
-        if (_.env.allowRemoveScript) {
+        if (_.env.allowRemoteScript) {
             $("head").append(`<script>window.twttr = (function(d, s, id) {
                 var js, fjs = d.getElementsByTagName(s)[0],
                   t = window.twttr || {};
@@ -1105,7 +1116,7 @@ $(() => {
                 let $a = $(e);
                 let imgurid = parseImgurId($a.attr("href"));
                 if (imgurid && !$a.attr("data-embed")) {
-                    if (_.env.allowRemoveScript) {
+                    if (_.env.allowRemoteScript) {
                         embedElem($a, $(`<blockquote class="imgur-embed-pub" lang="en" data-id="${imgurid}" data-context="false" ><a href="//imgur.com/${imgurid}"></a></blockquote><script async src="//s.imgur.com/min/embed.js" charset="utf-8"></script>`));
                     } else {
                         // iframeで無理やり表示する.
@@ -1124,7 +1135,7 @@ $(() => {
                 if (match && !$a.attr("data-embed") && $post.attr("id")) {
                     let tweetid = match[1];
                     let containerId = "tweet_container-" + $post.attr("id") + "-" + i;
-                    if (_.env.allowRemoveScript) {
+                    if (_.env.allowRemoteScript) {
                         embedElem($a, $(`<div id="${containerId}" class="twitter embed"></div><script id="test">window.twttr.ready(() => twttr.widgets.createTweet("${tweetid}", document.getElementById("${containerId}"), { lang:"ja" }));</script>`));
                     } else {
                         // iframeで無理やり表示する.
@@ -1140,9 +1151,9 @@ $(() => {
             // instagram の埋め込み.
             $post.find("div.message a.directlink").each((i, e) => {
                 let $a = $(e);
-                let match = $a.attr("href").match(/\/\/www.instagram.com\/(p|reel)\/([0-9a-zA-Z_\.+\-]+)\/*$/);
+                let match = $a.attr("href").match(/\/\/www.instagram.com\/(p|reel)\/([^\/]+?)\/.*$/);
                 if (match && !$a.attr("data-embed")) {
-                    if (_.env.allowRemoveScript) {
+                    if (_.env.allowRemoteScript) {
                         embedElem($a, $(`<blockquote class="instagram-media" data-instgrm-captioned data-instgrm-permalink="https://www.instagram.com/${match[1]}/${match[2]}/" style="width:450px;"></blockquote><script async src="//www.instagram.com/embed.js"></script>`));
                     } else {
                         // iframeで無理やり表示する.
@@ -1155,7 +1166,7 @@ $(() => {
             // youtube の埋め込み.
             $post.find("div.message a.directlink").each((i, e) => {
                 let $a = $(e);
-                let match = $a.attr("href").match(/\/\/(www|m)\.youtube.com\/.*[?&]v=(?<id>[0-9a-zA-Z_\.+]+).*$/) || $a.attr("href").match(/\/\/youtu.be\/(?<id>[0-9a-zA-Z_\.+]+)$/);
+                let match = $a.attr("href").match(/\/\/(www|m)\.youtube.com\/.*[?&]v=(?<id>[^&]+).*$/) || $a.attr("href").match(/\/\/youtu.be\/(?<id>[^&]+)$/);
                 if (match && !$a.attr("data-embed")) {
                     embedElem($a, $(`<iframe src="//www.youtube.com/embed/${match.groups["id"]}" width="640" height="360" scrolling="no" frameborder="0" allowfullscreen></iframe>`));
                     $a.attr("data-embed", true);
@@ -1199,12 +1210,12 @@ $(() => {
 
         // リモートスクリプトが使えない場合には、自力でメッセージ処理をしてiframeの高さ調整.
         // サービス側の仕様が変わったら動かなくなるので、できればブラックボックスのままリモートスクリプトに処理させたい...
-        if (!_.env.allowRemoveScript) {
+        if (!_.env.allowRemoteScript) {
             let findOwnerIFrame = (source) => Array.from(document.getElementsByTagName("iframe")).find(elm => elm["contentWindow"] == source);
             window.addEventListener('message', function (e) {
                 if (e.origin.match(/^https?:\/\/platform\.twitter\.com$/)) {
                     // twitter.
-                    if (e.data["twttr.embed"]?.id && e.data["twttr.embed"]?.method == "twttr.private.resize") {
+                    if (e?.data["twttr.embed"]?.id && e.data["twttr.embed"]?.method == "twttr.private.resize") {
                         e.data["twttr.embed"]?.params?.filter(p => p.height).forEach(p => {
                             // $(`iframe#${e.data["twttr.embed"].id}`).height(p.height);
                             $(findOwnerIFrame(e.source)).height(p.height);
@@ -1267,13 +1278,15 @@ $(() => {
 
             // NG判定.
             let matchNG = matchNGPost(value);
-
             // NG word判定 & ハイライト
             if ($post.find("span.ng_word_inline").length > 0) {
                 $post.find("span.ng_word_inline").remove();
                 $post.find("span.ng_word_wrapper").contents().unwrap();
                 $post.find("div.message").each((i, e) => e.normalize());
             }
+
+            $post.find("span.control_link").remove();
+
             if (matchNG.word) {
                 // NG Word ハイライト.
                 let $span = $post.find("div.message").find("span");
@@ -1297,7 +1310,8 @@ $(() => {
             }
 
             // 制御用リンク追加.
-            $post.find("span.control_link").remove();
+            $post.find("span.gochutil_wrapper").contents().unwrap();
+            $post.find("span.gochutil_wrapper").remove();
 
             let spanName = $post.find("span.name").html();
             let createCountControlLinkTag = (map, key, cls, settingKey) => (map[key] && createControlLink(cls + (map[key].length >= _.settings.app.get()[settingKey] ? " many" : ""), (map[key].indexOf(value.postId) + 1) + "/" + map[key].length.toString(), map[key].length <= 1).prop("outerHTML") || "");
@@ -1307,8 +1321,8 @@ $(() => {
             if (value.slip) {
                 spanName = spanName.replace(rSlip, (match) =>
                     match
-                        .replace(rKoro2, "$&" + createNGControlLink(matchNG.koro2, "ng_koro2", "", "NG Korokoro").prop("outerHTML") + createCountControlLinkTag(koro2Map, value.koro2, "ref_koro2 count_link", "koro2ManyCount"))
-                        .replace(rIp, "$&" + createNGControlLink(matchNG.ip, "ng_ip", "", "NG IP").prop("outerHTML") + createCountControlLinkTag(ipMap, value.ip, "ref_ip count_link", "ipManyCount"))
+                        .replace(rKoro2, '<span class="koro2 gochutil_wrapper">$&</span>' + createNGControlLink(matchNG.koro2, "ng_koro2", "", "NG Korokoro").prop("outerHTML") + createCountControlLinkTag(koro2Map, value.koro2, "ref_koro2 count_link", "koro2ManyCount"))
+                        .replace(rIp, '<span class="ip gochutil_wrapper">$&</span>' + createNGControlLink(matchNG.ip, "ng_ip", "", "NG IP").prop("outerHTML") + createCountControlLinkTag(ipMap, value.ip, "ref_ip count_link", "ipManyCount"))
                 );
             }
             if (value.trip) {
@@ -1334,69 +1348,100 @@ $(() => {
 
         // ポップアップの共通処理
         let createPopup = (popupId, popupClass, $inner) => {
-            let $container = $(`<div id="${popupId}" class="vis" style="border: 1px solid rgb(51, 51, 51); position: absolute; background-color: rgb(239, 239, 239); display: block; padding: 5px;"/>`);
+            let $container = $(`<div id="${popupId}" class="vis popup-container" style="border: 1px solid rgb(51, 51, 51); position: absolute; background-color: rgb(239, 239, 239); display: block; padding: 5px;"/>`);
             $container.append($inner);
             $container.addClass(popupClass);
 
             $container.hover(function () {
-                $container.addClass("own_hover");
-                $container.removeClass("post_hover");
+                if (timeoutHandles[popupId]) {
+                    clearTimeout(timeoutHandles[popupId]);
+                }
+                timeoutHandles[popupId] = undefined;
+                $container.addClass("own_hover").removeClass("post_hover");
             }, function () {
                 $container.removeClass("own_hover");
-                setTimeout(() => {
-                    if (!$container.hasClass("post_hover")) {
-                        $container.remove();
-                    }
-                }, 0);
-            })
+                hidePopup(popupId);
+            });
             return $container;
         }
 
-        let mouseOverPopupLink = (popupId, popupClass, position, innerContent, postProcess) => {
+
+        let timeoutHandles = {};
+        let showPopup = (popupId, popupClass, position, innerContent, postProcess, showDelay) => {
             return function () {
                 $a = $(this);
+
+                if ($(`#${popupId}`).length > 0) {
+                    $(`#${popupId}:not(.post_hover):not(.own_hover)`).addClass("post_hover");
+                    if (timeoutHandles[popupId]) {
+                        clearTimeout(timeoutHandles[popupId]);
+                    }
+                    timeoutHandles[popupId] = undefined;
+                    return;
+                }
 
                 let offset = position($a);
 
                 if (offset) {
-                    let $inner = innerContent($a);
-                    if ($inner && $inner.length > 0) {
+                    let innerProcess = () => {
+                        let $inner = innerContent($a);
+                        if ($inner && $inner.length > 0) {
 
-                        let $popup = createPopup(popupId, popupClass, $inner);
-                        if (postProcess) {
-                            postProcess($popup);
-                        }
+                            let $popup = createPopup(popupId, popupClass, $inner);
+                            if (postProcess) {
+                                postProcess($popup);
+                            }
 
-                        $popup.addClass("popup")
-                        $popup.addClass("post_hover");
-                        $popup.removeClass("own_hover");
+                            $popup.addClass("popup").addClass("post_hover").removeClass("own_hover");
 
-                        let topMargin = $("nav.navbar-fixed-top").height() + 10;
-                        let leftMargin = 10;
-                        let maxHeight = $(window).height() - topMargin - 10;
-                        let maxWidth = $(window).width() - leftMargin - 10;
+                            let topMargin = $("nav.navbar-fixed-top").height() + 10;
+                            let leftMargin = 10;
+                            let maxHeight = $(window).height() - topMargin - 10;
+                            let maxWidth = $(window).width() - leftMargin - 10;
 
-                        let positioning = () => $popup.offset({
-                            top: Math.min(offset.top, Math.max($(window).scrollTop() + topMargin, $(window).scrollTop() + topMargin + maxHeight - $popup.outerHeight())),
-                            left: Math.min(offset.left, Math.max($(window).scrollLeft() + leftMargin, $(window).scrollLeft() + leftMargin + maxWidth - $popup.outerWidth()))
-                        });
-                        let sizing = () => {
-                            $popup.outerHeight(Math.min($popup.outerHeight(), maxHeight));
-                            $popup.outerWidth(Math.min($popup.outerWidth(), maxWidth));
-                        };
+                            let positioning = () => $popup.offset({
+                                top: Math.min(offset.top, Math.max($(window).scrollTop() + topMargin, $(window).scrollTop() + topMargin + maxHeight - $popup.outerHeight())),
+                                left: Math.min(offset.left, Math.max($(window).scrollLeft() + leftMargin, $(window).scrollLeft() + leftMargin + maxWidth - $popup.outerWidth()))
+                            });
+                            let sizing = () => {
+                                $popup.outerHeight(Math.min($popup.outerHeight(), maxHeight));
+                                $popup.outerWidth(Math.min($popup.outerWidth(), maxWidth));
+                            };
 
-                        $popup.find("img").on("load", function () {
+                            $popup.find("img").on("load", function () {
+                                positioning();
+                                sizing();
+                            });
+
                             positioning();
-                            sizing();
-                        });
+                            $("body").append($popup);
 
-                        positioning();
-                        $("body").append($popup);
-
-                        if ($popup.find("img").length <= 0) {
-                            positioning();
-                            sizing();
+                            if ($popup.find("img").length <= 0) {
+                                positioning();
+                                sizing();
+                            }
                         }
+                    }
+
+                    if (showDelay) {
+                        // タイマー設定して、1秒後にポップアップ処理.
+                        if (timeoutHandles[popupId]) {
+                            clearTimeout(timeoutHandles[popupId]);
+                        }
+                        $a.addClass("hoveringprogress");
+                        timeoutHandles[popupId] = setTimeout(() => {
+                            timeoutHandles[popupId] = undefined;
+                            $a.removeClass("progrehoveringprogressss")
+                            innerProcess();
+                        }, 1000);
+                    } else {
+                        // 即時ポップアップ処理.
+                        if (timeoutHandles[popupId]) {
+                            clearTimeout(timeoutHandles[popupId]);
+                        }
+                        timeoutHandles[popupId] = undefined;
+                        $a.removeClass("hoveringprogress");
+                        innerProcess();
                     }
                 }
             };
@@ -1404,150 +1449,129 @@ $(() => {
 
         let mouseOutPopupLink = (popupId) => {
             return function () {
-                let popup = $("body").find(`div#${popupId}`);
-                if (popup.length > 0) {
-                    popup.removeClass("post_hover");
-                    setTimeout(() => {
-                        if (!popup.hasClass("own_hover")) {
-                            popup.remove();
-                        }
-                    }, 0);
+                if (timeoutHandles[popupId]) {
+                    clearTimeout(timeoutHandles[popupId]);
+                }
+                timeoutHandles[popupId] = undefined;
+                $(this).removeClass("hoveringprogress");
+
+                let $popup = $("body").find(`div#${popupId}`);
+
+                if ($popup.length > 0) {
+                    $popup.removeClass("post_hover");
+                    hidePopup(popupId);
                 }
             }
         }
 
+        let hidePopup = (popupId) => {
+            timeoutHandles[popupId] = setTimeout(() => {
+                if (timeoutHandles[popupId]) {
+                    clearTimeout(timeoutHandles[popupId]);
+                }
+                timeoutHandles[popupId] = undefined;
+                let $popup = $("body").find(`div#${popupId}`)
+                if (!$popup.hasClass("own_hover") && !$popup.hasClass("post_hover")) {
+                    $popup.remove();
+                }
+            }, 300);
+        }
+
         // 画像のポップアップ処理
-        $("body").on("mouseover", "div.message a.image.directlink img", mouseOverPopupLink("img_popup", "img_popup loader", $img => {
+        $("body").on("mouseover", "div.message a.image.directlink img", showPopup("img_popup", "img_popup loader", $img => {
             let $a = $img.closest("a");
             if ($a.find("img.thumb_i").length > 0) {
                 return { top: $a.find("img.thumb_i").offset().top, left: $a.find("img.thumb_i").offset().left + $a.find("img.thumb_i").width() };
             }
-        }, $img => $('<img class="popup_img loader" referrerpolicy="no-referrer" />').on("load", function () { $(this).closest("#img_popup").removeClass("loader") }).attr("src", $img.closest("a").attr("href"))));
+        }, $img => $('<img class="popup_img loader" referrerpolicy="no-referrer" />').on("load", function () { $(this).closest("#img_popup").removeClass("loader") }).attr("src", $img.closest("a").attr("href")), false));
         $("body").on("mouseout", "div.message a.image.directlink img", mouseOutPopupLink("img_popup"));
 
         // Korokoro, ip, id のレスリストポップアップ処理
-        let listPopup = (spanClass, popupIdAndClass, lister) => {
-            $("body").on("mouseover", `span.${spanClass} a`, mouseOverPopupLink(popupIdAndClass, `${popupIdAndClass} list_popup`, $a => { return { top: $a.offset().top, left: $a.offset().left + $a.width() } }, $a => {
+        let listPopup = (spanClass, popupIdAndClass, lister, delay = false) => {
+            $("body").on("mouseover", `span.${spanClass} a`, showPopup(popupIdAndClass, `${popupIdAndClass} list_popup`, $a => { return { top: $a.offset().top - 15, left: $a.offset().left + $a.width() } }, $a => {
                 let val = getPostValue($a.closest("div.meta").parent());
                 let list = lister(val);
                 if (list.length > 0) {
                     return $(list.map(pid => $(`div.post#${pid}`)[0])).clone();
                 }
-            }, c => c.find("div.post").after("<br>")));
+            }, c => c.find("div.post").after("<br>"), delay));
             $("body").on("mouseout", `span.${spanClass} a`, mouseOutPopupLink(popupIdAndClass));
         };
         listPopup("ref_koro2", "koro2_popup", (v) => koro2Map[v.koro2]);
         listPopup("ref_ip", "ip_popup", (v) => ipMap[v.ip]);
         listPopup("ref_id", "id_popup", (v) => idMap[v.dateAndID.id]);
-        listPopup("ref_posts", "ref_post_popup", (v) => refPostId[v.postId]);
+        listPopup("ref_posts", "ref_post_popup", (v) => refPostId[v.postId], true);
 
-        // あぼーんのポップアップ処理
-        let timeoutHandle;
+        // あぼーんのポップアップ処理.
+        let popupNgFunction = (showDelay) => {
+            return showPopup("abone_popup", "abone_popup", ($a) => {
+                if (_.settings.app.get().dontPopupMouseoverNgMsg) {
+                    return;
+                }
+                return $a.offset();
+            }, ($a) => {
+                let $inner = $a.closest("div.message.abone").clone().removeClass("abone");
+                $inner.find("span.abone_message").remove();
+                $inner.find("span").removeClass("abone");
+                return $inner;
+            }, undefined, showDelay);
+        };
+        $("body").on("mouseover", "div.message.abone span.abone_message a", popupNgFunction(true));
+        $("body").on("click", "div.message.abone span.abone_message a", popupNgFunction(false));
+        $("body").on("mouseout", "div.message.abone span.abone_message a", mouseOutPopupLink("abone_popup"));
 
-        let createNGMsgPopup = ($msg) => {
-            let container = $('<div id="abone_popup" class="vis abone_popup" style="border: 1px solid rgb(51, 51, 51); position: absolute; background-color: rgb(239, 239, 239); display: block; padding: 5px;"/>');
-
-            let clone = $msg.clone().removeClass("abone");
-            clone.find("span.abone_message").remove();
-            clone.find("span").removeClass("abone");
-            container.append(clone);
-            container.hover(function () {
-                container.addClass("own_hover");
-                container.removeClass("post_hover");
-            }, function () {
-                container.removeClass("own_hover");
-                setTimeout(() => {
-                    if (!container.hasClass("post_hover")) {
-                        container.remove();
-                    }
-                }, 0);
-            })
-            return container;
+        let closestPost = ($a) => {
+            let $post = $a.closest("div.post");
+            if ($post.length == 0) {
+                $post = $a.closest('div[id^="reply-"]');
+            }
+            return $post;
         }
 
-        $("body").on("mouseover", "div.message.abone span.abone_message a", function () {
-            if (_.settings.app.get().dontPopupMouseoverNgMsg) {
-                return;
+        let processPopupPosts = ($a) => {
+            let $p = closestPost($a);
+            let $posts = $a.closest("div.list_popup").find("div.post");
+            if ($posts.length > 0) {
+                $posts.each((i, e) => processPost($(e)));
+            } else {
+                if ($p && $p.length == 1) processPost($p);
             }
-            $a = $(this);
-            let o = $a.offset();
-            if (timeoutHandle)
-                clearTimeout(timeoutHandle);
-            $a.addClass("hovering")
-            timeoutHandle = setTimeout(() => {
-                timeoutHandle = undefined;
-                $a.removeClass("hovering")
-                let popup = createNGMsgPopup($(this).closest("div.message.abone"));
-                popup.addClass("post_hover");
-                popup.removeClass("own_hover");
-                $("body").append(popup)
-
-                let bo = $("body").offset();
-                popup.css("left", Math.min(o.left + $(this).width(), bo.left + $("body").width() - 20 - popup.width()));
-                popup.css("top", Math.min(o.top, bo.top + $("body").height() - 20 - popup.height()));
-            }, 1000);
-        });
-
-        $("body").on("click", "div.message.abone span.abone_message a", function () {
-            $a = $(this);
-            let o = $a.offset();
-            if (timeoutHandle)
-                clearTimeout(timeoutHandle);
-            timeoutHandle = undefined;
-            $a.removeClass("hovering")
-            let popup = createNGMsgPopup($(this).closest("div.message.abone"));
-            popup.addClass("post_hover");
-            popup.removeClass("own_hover");
-            $("body").append(popup);
-
-            let bo = $("body").offset();
-            popup.css("left", Math.min(o.left + $(this).width(), bo.left + $("body").width() - 20 - popup.width()));
-            popup.css("top", Math.min(o.top, bo.top + $("body").height() - 20 - popup.height()));
-        });
-
-        let removePopup = () => {
-            if (timeoutHandle)
-                clearTimeout(timeoutHandle);
-            $("body").find("div#abone_popup").remove();
         };
 
-        $("body").on("mouseout", "div.message.abone span.abone_message a", function () {
-            if (timeoutHandle)
-                clearTimeout(timeoutHandle);
-            $(this).removeClass("hovering");
-            let popup = $("body").find("div#abone_popup");
-            if (popup.length > 0) {
-                popup.removeClass("post_hover");
-                setTimeout(() => {
-                    if (!popup.hasClass("own_hover")) {
-                        popup.remove();
-                    }
-                }, 0);
-            }
-        });
+        let removeAllPopup = () => {
+            Object.keys(timeoutHandles).forEach(k => {
+                clearTimeout(timeoutHandles[k]);
+                timeoutHandles[k] = undefined;
+            });
+            $("div.popup").remove();
+        }
 
         // NGの追加/削除イベント
-        let controlNGEventListener = (parser, handler, lister) => {
+        let controlNGEventListener = function (parser, handler, lister) {
             return async function () {
-                let $post = $(this).closest("div.post");
-                let value = parser($post);
-                if (value) {
-                    await handler(value);
-                    processThread(lister && lister(value));
-                    removePopup();
+                let $a = $(this);
+                let $post = closestPost($a);
+                if ($post.length > 0) {
+                    let value = parser($post);
+                    if (value) {
+                        await handler(value);
+                        processThread(lister && lister(value));
+                        processPopupPosts($a)
+                    }
                 }
             }
         }
 
-        let controlNGWordEventListener = (handler) => {
+        let controlNGWordEventListener = function (handler) {
             return async function () {
+                let $a = $(this);
                 let sel = window.getSelection();
                 let word = sel?.isCollapsed ? undefined : sel?.getRangeAt(0).toString();
                 if (sel && !sel.isCollapsed && sel.anchorNode === sel.focusNode && $(sel.anchorNode).closest("div.message").length > 0 && word && word.length > 1 && word.length < 10) {
                     await handler(word);
                     document.getSelection().removeAllRanges();
+                    removeAllPopup();
                     processThread();
-                    removePopup();
                 }
             }
         }
@@ -1567,11 +1591,12 @@ $(() => {
         $("body").on("click", "span.ng_control_link.ng_word.remove a", controlNGWordEventListener(d => _.settings.ng.words.remove(d)));
 
         $("body").on("click", "span.ng_control_link.remove.ng_word_inline a", async function () {
+            let $a = $(this);
             await _.settings.ng.words.remove($(this).closest("span.ng_control_link.remove.ng_word_inline").data("word"));
             document.getSelection().removeAllRanges();
             setTimeout(() => {
+                removeAllPopup();
                 processThread();
-                removePopup();
             }, 0);
         });
 
@@ -1658,54 +1683,56 @@ $(() => {
         }
 
         // 新着レスの取得と追加処理.
-        let fetchAndAppendNewPost = (callback) => {
-            if (canAppendNewPost() && !fetching) {
-                let newPid = lastPostId() + 1;
-                let match = location.href.match(/^(.+[0-9]{4})\/.*?$/);
-                if (match) {
-                    let url = match[1] + "/" + newPid + "-";
-                    fetching = true;
-                    removeNewPostMark();
-                    showProcessingMessage();
-                    fetch(url)
-                        .then(response => response.arrayBuffer())
-                        .then(ab => new TextDecoder(document.characterSet).decode(ab))
-                        .then(txt => {
-                            let parser = new DOMParser();
-                            let doc = parser.parseFromString(txt, "text/html");
-                            let $thread = $(doc).find("div.thread");
-                            $thread.find("div.post:first").remove();
-                            $thread.children().not("div.post").remove();
-                            $thread.find("div.post").after("<br>");
-                            if ($thread.find("div.post").length > 0) {
-                                let postArray = [].concat($("div.thread div.post").toArray()).concat($thread.find("div.post").toArray())
-                                if (!displayItems.all && ((displayItems.last && displayItems.last > 0) || (displayItems.to && displayItems.to > 0))) {
-                                    if (displayItems.last && displayItems.last > 0 && displayItems.last + 2 < postArray.length) {
-                                        // 最新N件よりも多いので、余剰分を削除. 実際にはN+2件が表示される(>>1と最新N+1件)
-                                        let target = postArray.slice(1, postArray.length - displayItems.last - 1);
-                                        target.forEach(p => {
-                                            $(p).next("br").remove();
-                                            $(p).remove();
-                                        });
+        let fetchAndAppendNewPost = () => {
+            return new Promise((resolve, reject) => {
+                if (canAppendNewPost() && !fetching) {
+                    let newPid = lastPostId() + 1;
+                    let match = location.href.match(/^(.+[0-9]{4})\/.*?$/);
+                    if (match) {
+                        let url = match[1] + "/" + newPid + "-n";
+                        fetching = true;
+                        removeNewPostMark();
+                        showProcessingMessage();
+                        fetch(url)
+                            .then(response => response.arrayBuffer())
+                            .then(ab => new TextDecoder(document.characterSet).decode(ab))
+                            .then(txt => {
+                                let parser = new DOMParser();
+                                let doc = parser.parseFromString(txt, "text/html");
+                                let $thread = $(doc).find("div.thread");
+                                $thread.children().not("div.post").remove();
+                                $thread.find("div.post").after("<br>");
+                                if ($thread.find("div.post").length > 0) {
+                                    let postArray = [].concat($("div.thread div.post").toArray()).concat($thread.find("div.post").toArray())
+                                    if (!displayItems.all && ((displayItems.last && displayItems.last > 0) || (displayItems.to && displayItems.to > 0))) {
+                                        if (displayItems.last && displayItems.last > 0 && displayItems.last + 2 < postArray.length) {
+                                            // 最新N件よりも多いので、余剰分を削除. 実際にはN+2件が表示される(>>1と最新N+1件)
+                                            let target = postArray.slice(1, postArray.length - displayItems.last - 1);
+                                            target.forEach(p => {
+                                                $(p).next("br").remove();
+                                                $(p).remove();
+                                            });
+                                        }
+                                        if (displayItems.to && displayItems.to > 0) {
+                                            // Nまで表示で最終がオーバーしたものを削除.
+                                            let target = postArray.filter(p => { let pid = parsePostId($(p)); return pid && parseInt(pid) && parseInt(pid) > displayItems.to; })
+                                            target.forEach(p => {
+                                                $(p).next("br").remove();
+                                                $(p).remove();
+                                            });
+                                        }
                                     }
-                                    if (displayItems.to && displayItems.to > 0) {
-                                        // Nまで表示で最終がオーバーしたものを削除.
-                                        let target = postArray.filter(p => { let pid = parsePostId($(p)); return pid && parseInt(pid) && parseInt(pid) > displayItems.to; })
-                                        target.forEach(p => {
-                                            $(p).next("br").remove();
-                                            $(p).remove();
-                                        });
-                                    }
-                                }
 
-                                $("div.thread div.post:last").next("br").after($thread.html());
-                            }
-                            fetching = false;
-                            hideProcessingMessage();
-                        })
-                        .then(() => callback && callback());
+                                    $("div.thread div.post:last").next("br").after($thread.html());
+                                }
+                                fetching = false;
+                                hideProcessingMessage();
+                            })
+                            .catch(e => reject(e))
+                            .then(() => resolve());
+                    }
                 }
-            }
+            });
         }
 
         // 新着レス取得追加ボタン処理.
@@ -1769,7 +1796,7 @@ $(() => {
                         }
                         return;
                     }
-                    fetchAndAppendNewPost(() => {
+                    fetchAndAppendNewPost().then(() => {
                         if (!canAppendNewPost()) {
                             $chk.removeAttr("checked").prop('checked', false).trigger("change");
                         }
@@ -1793,6 +1820,23 @@ $(() => {
             }
         });
 
+        let hilight = (className, lister) => {
+            $(document).on("click", `div.meta span.name span.${className}`, function () {
+                let $p = closestPost($(this));
+                if ($p) {
+                    let hilighted = $p.hasClass("highlightpost");
+                    $("div.highlightpost").removeClass("highlightpost");
+                    if (!hilighted) {
+                        let val = getPostValue($p);
+                        lister(val)?.forEach(pid => $(`div.post#${pid}`).removeClass("highlightpost").addClass("highlightpost"));
+                    }
+                }
+            });
+        }
+
+        hilight("koro2", v => koro2Map[v.koro2]);
+        hilight("ip", v => ipMap[v.ip]);
+
         // データ構築.
         let pushArrayToMap = (map, key, val) => {
             if (key) {
@@ -1808,14 +1852,10 @@ $(() => {
         }
 
         let removeArrayToMap = (map, key, val) => {
-            if (key) {
-                if (map[key]) {
-                    if (map[key].includes(val)) {
-                        map[key].splice(map[key].indexOf(val), 1);
-                        if (map[key].length == 0) {
-                            delete map.key;
-                        }
-                    }
+            if (key && map?.[key] && map[key].includes(val)) {
+                map[key].splice(map[key].indexOf(val), 1);
+                if (map[key].length == 0) {
+                    delete map[key];
                 }
             }
             return map;

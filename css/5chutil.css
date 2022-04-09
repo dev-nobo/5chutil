@@ -53,18 +53,29 @@ div#img_popup img.popup_img {
     z-index: 10;
 }
 
-div.message.abone span.abone_message a.hovering {
+div.message span.embed {
+    padding:5px;
+    display: inline-block;
+    border: 1px solid #464646;
+    background-color: #ffffff;
+    transition: background-color .3s ease-out;
+}
+
+div.message span.embed a{
+    color: #485269;
+    text-decoration: none !important;
+}
+
+div.message span.embed:hover {
+    background-color: #eee;
+}
+
+a.hoveringprogress {
     position: relative;
     z-index: 0;
 }
 
-div.message span.embed {
-    padding:5px;
-    display: inline-block;
-    border: 1px solid black;
-}
-
-div.message.abone span.abone_message a.hovering::after {
+a.hoveringprogress::after {
     position: absolute;
     content: "";
     top: 0;

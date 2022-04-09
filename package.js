@@ -28,36 +28,36 @@ let main = async () => {
     remove("package");
     mkdir("package");
 
+    const pkgName = "5chutil";
+    const dirs = ["css", "html", "icon", "js"];
+    const envFiles = ["env.js", "manifest.json"];
+
     // firefox, chrome 用addon
     let copyToPackageDir = (brwsr) => {
         mkdir(`package/${brwsr}`);
-        copy("css", `package/${brwsr}/css`);
-        copy("html", `package/${brwsr}/html`);
-        copy("icon", `package/${brwsr}/icon`);
-        copy("js", `package/${brwsr}/js`);
-        copy(`env/${brwsr}/env.js`, `package/${brwsr}/env.js`);
-        copy(`env/${brwsr}/manifest.json`, `package/${brwsr}/manifest.json`);
+        dirs.forEach(d => copy(d, `package/${brwsr}/${d}`))
+        envFiles.forEach(f => copy(`env/${brwsr}/${f}`, `package/${brwsr}/${f}`))
         return `package/${brwsr}`;
     };
 
     copyToPackageDir("firefox");
     copyToPackageDir("chrome");
-    remove("package/5chutil_firefox.zip");
-    remove("package/5chutil_chrome.zip");
+    remove(`package/${pkgName}_firefox.zip`);
+    remove(`package/${pkgName}_chrome.zip`);
     await Promise.all([
-        archive("package/5chutil_firefox.zip", "**/*", "package/firefox"),
-        archive("package/5chutil_chrome.zip", "chrome/**/*", "package")
+        archive(`package/${pkgName}_firefox.zip`, "**/*", "package/firefox"),
+        archive(`package/${pkgName}_chrome.zip`, "chrome/**/*", "package")
     ]);
 
     // userscript
     mkdir("package/userscript");
-    remove("userscript/5chutil.userscript.js");
+    remove(`userscript/5chutil.userscript.js`);
 
     let format = fs.readFileSync("env/userscript/format.js", "utf-8");
     // placeholder '//$[[FILE:(filepath)]]' を ファイルの内容に差し替える.
     let userScript = format.replace(/\/\/\$\[\[FILE:(.*?)\]\]/g, (match, c1) => fs.readFileSync(c1, "utf-8"));
-    fs.writeFileSync("package/userscript/5chutil.userscript.js", userScript);
-    copy("package/userscript/5chutil.userscript.js", "userscript/5chutil.userscript.js")
+    fs.writeFileSync(`package/userscript/${pkgName}.userscript.js`, userScript);
+    copy(`package/userscript/${pkgName}.userscript.js`, `userscript/${pkgName}.userscript.js`)
 
     console.log("finish");
 };
