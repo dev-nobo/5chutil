@@ -32,5 +32,6 @@
 
 ---
 ## 公開
-- [Firefox Addon](https://addons.mozilla.org/ja/firefox/addon/5chutil/)
-- [Userscript](https://greasyfork.org/ja/scripts/441117-5chutil)
+- [TamperMonkey版](https://greasyfork.org/ja/scripts/441117-5chutil)
+- [Chrome Addon版](https://chrome.google.com/webstore/detail/5chutil/ckcklnamohjkfhflhfgboeadbbfhnmif)
+- [Firefox Addon版](https://addons.mozilla.org/ja/firefox/addon/5chutil/)

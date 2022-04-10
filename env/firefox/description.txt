@@ -30,6 +30,6 @@
 - imgur, twitter, youtube へのリンクに埋め込みリンクが追加され、クリックするとコンテンツを埋め込みます。(設定で自動化可能)
 
 ---
-[TamperMonkey版](https://greasyfork.org/ja/scripts/441117-5chutil)
-[Chrome Addon版]https://chrome.google.com/webstore/detail/5chutil/ckcklnamohjkfhflhfgboeadbbfhnmif
-[Firefox Addon版(ここ)]https://addons.mozilla.org/ja/firefox/addon/5chutil/
+- [TamperMonkey版](https://greasyfork.org/ja/scripts/441117-5chutil)
+- [Chrome Addon版](https://chrome.google.com/webstore/detail/5chutil/ckcklnamohjkfhflhfgboeadbbfhnmif)
+- [Firefox Addon版(ここ)](https://addons.mozilla.org/ja/firefox/addon/5chutil/)
