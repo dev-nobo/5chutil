@@ -726,7 +726,8 @@ $(() => {
             $("div.newposts span.autoload_newposts").remove();
             if (canAppendNewPost()) {
                 $("div.newposts").append(`<span class="appendnewposts"><a class="appendnewposts" href="javascript:void(0);">新着レスの取得と追加</a></span>`);
-                $("div.newposts").append(`<span class="autoload_newposts"><input type="checkbox" id="autoload_newpost" /><label for="autoload_newpost">自動で新着レスの取得(<span class="seconds_remaining" style="min-width:25px;text-align:right;display:inline-block;">${autoloadIntervalSeconds}</span>秒)</label><span class="error_msg" style="display:none;"><br><span class="msg"></span></span></span>`);
+                $("div.newposts").append(`<span class="autoload_newposts"><input type="checkbox" id="autoload_newpost" /><label for="autoload_newpost">自動で新着レスの取得(<span class="seconds_remaining" style="min-width:25px;text-align:right;display:inline-block;">${autoloadIntervalSeconds}</span>秒)</label></span>`);
+                $("div.newposts").append(`<span class="error_msg" style="display:block;"><span class="msg"></span></span>`);
             }
         }
         controlReloadControler();
@@ -814,11 +815,11 @@ $(() => {
         $(document).on("click", "div.newposts span.appendnewposts a", function () {
             if (!$("div.newposts span.appendnewposts").hasClass("disabled")) {
                 fetchAndAppendNewPost()
-                    .then(() => $("div.newposts span.autoload_newposts span.error_msg span.msg").text())
+                    .then(() => $("div.newposts span.error_msg span.msg").text(""))
                     .catch(e => {
                         if (e.httpStatus = 410) {
                             // gone.
-                            $("div.newposts span.autoload_newposts span.error_msg span.msg").text("410 GONE が応答されました。しばらく待ちましょう。");
+                            $("div.newposts span.error_msg span.msg").text("410 GONE が応答されました。しばらく待ちましょう。");
                         }
                     })
                     .finally(() => {
@@ -827,12 +828,20 @@ $(() => {
                         $("div.newposts span.appendnewposts").addClass("disabled")
                         $("div.newposts span.appendnewposts a").addClass("backgroundwidthprogress");
                         setTimeout(() => {
+                            $("div.newposts span.appendnewposts").addClass("disabled_exit");
                             $("div.newposts span.appendnewposts").removeClass("disabled");
+                            reflow($("div.newposts span.appendnewposts").get(0));
                             $("div.newposts span.appendnewposts a").removeClass("backgroundwidthprogress");
+                            $("div.newposts span.appendnewposts").removeClass("disabled_exit");
                         }, waitSecondsForAppendNewPost * 1000);
                     });
             }
         });
+
+        let reflow = (e) => {
+            //-hack for reflow
+            void e.offsetWidth;
+        }
 
         // 自動更新処理用変数.
         let autoloadInterval = undefined;
@@ -866,7 +875,7 @@ $(() => {
         $(document).on("change", "div.newposts span.autoload_newposts input[type='checkbox']", function () {
             $chk = $(this);
             if ($chk.is(":checked")) {
-                $("div.newposts span.autoload_newposts span.error_msg").hide();
+                $("div.newposts span.error_msg span.msg").text("");
                 unforcusFetchCount = 0;
                 if (autoloadInterval) {
                     clearInterval(autoloadInterval);
@@ -876,7 +885,7 @@ $(() => {
                 startCountDown();
                 autoloadInterval = setInterval(() => {
                     startCountDown();
-                    $("div.newposts span.autoload_newposts").removeClass("waiting");
+                    $("div.newposts span.autoload_newposts").removeClass("backgroundwidthprogress");
                     if (!document.hasFocus()) {
                         unforcusFetchCount++;
                     } else {
@@ -885,8 +894,7 @@ $(() => {
                     if (!canAppendNewPost() || unforcusFetchCount > _.settings.app.get().allowUnforcusAutoloadCount) {
                         $chk.removeAttr("checked").prop('checked', false).trigger("change");
                         if (unforcusFetchCount > _.settings.app.get().allowUnforcusAutoloadCount) {
-                            $("div.newposts span.autoload_newposts span.error_msg span.msg").text(`非アクティブ状態で${_.settings.app.get().allowUnforcusAutoloadCount}回ロードしたためオフにしました`);
-                            $("div.newposts span.autoload_newposts span.error_msg").show();
+                            $("div.newposts span.error_msg span.msg").text(`非アクティブ状態で${_.settings.app.get().allowUnforcusAutoloadCount}回ロードしたためオフにしました`);
                         }
                         return;
                     }
@@ -895,31 +903,29 @@ $(() => {
                             if (e.httpStatus = 410) {
                                 // gone.
                                 $chk.removeAttr("checked").prop('checked', false).trigger("change");
-                                $("div.newposts span.autoload_newposts span.error_msg span.msg").text("410 GONE が応答されたため、オフにしました。");
+                                $("div.newposts span.error_msg span.msg").text("410 GONE が応答されたため、オフにしました。");
                             }
                         })
                         .then(() => {
-                            () => $("div.newposts span.autoload_newposts span.error_msg span.msg").text()
+                            $("div.newposts span.error_msg span.msg").text("");
                             if (!canAppendNewPost()) {
                                 $chk.removeAttr("checked").prop('checked', false).trigger("change");
                             }
                         });
-                    //-hack for reflow
-                    void $("div.newposts span.autoload_newposts").get(0).offsetWidth;
-                    $("div.newposts span.autoload_newposts").addClass("waiting");
+                    reflow($("div.newposts span.autoload_newposts").get(0));
+                    $("div.newposts span.autoload_newposts").addClass("backgroundwidthprogress");
                 }, autoloadIntervalSeconds * 1000);
-                $("div.newposts span.autoload_newposts").removeClass("waiting");
+                $("div.newposts span.autoload_newposts").removeClass("backgroundwidthprogress");
                 document.documentElement.style.setProperty('--wait-animation-span', `${autoloadIntervalSeconds}s`);
-                //-hack for reflow
-                void $("div.newposts span.autoload_newposts").get(0).offsetWidth;
-                $("div.newposts span.autoload_newposts").addClass("waiting");
+                reflow($("div.newposts span.autoload_newposts").get(0));
+                $("div.newposts span.autoload_newposts").addClass("backgroundwidthprogress");
             } else {
                 if (autoloadInterval) {
                     clearInterval(autoloadInterval);
                     stopCountDown();
                     autoloadInterval = undefined;
                 }
-                $("div.newposts span.autoload_newposts").removeClass("waiting");
+                $("div.newposts span.autoload_newposts").removeClass("backgroundwidthprogress");
             }
         });
 
