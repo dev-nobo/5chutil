@@ -87,21 +87,22 @@ $(() => {
 
         $("button.ng.dateAndID.select").off("click");
         $("button.ng.dateAndID.select").on("click", function () {
-            let days = parseInt($("input.ng.dateAndID.days").val());
-            if (!days.isNaN) {
-                if (days > 0 && days < 100) {
-                    let now = new Date();
-                    let to = new Date(now.getFullYear(), now.getMonth(), now.getDate() - days);
-                    let ymdTo = to.getFullYear() + "/" + ("00" + (to.getMonth() + 1)).slice(-2) + "/" + ("00" + to.getDate()).slice(-2);
-                    $("select.ng.dateAndID").find("option").each((i, e) => {
-                        let $opt = $(e)
-                        if ($opt.data("date") <= ymdTo) {
-                            $opt.prop("selected", true);
-                        }
-                    });
-                } else {
-                    window.alert("1～99で設定してください。");
-                }
+            let $input = $("input.ng.dateAndID.days");
+            let num = parseInt($input.val());
+            let min = parseInt($input.attr("min"));
+            let max = parseInt($input.attr("max"));
+            if (num && !num.isNaN && min <= num && num <= max) {
+                let now = new Date();
+                let to = new Date(now.getFullYear(), now.getMonth(), now.getDate() - num);
+                let ymdTo = to.getFullYear() + "/" + ("00" + (to.getMonth() + 1)).slice(-2) + "/" + ("00" + to.getDate()).slice(-2);
+                $("select.ng.dateAndID").find("option").each((i, e) => {
+                    let $opt = $(e)
+                    if ($opt.data("date") <= ymdTo) {
+                        $opt.prop("selected", true);
+                    }
+                });
+            } else {
+                window.alert(`${min}～${max}で設定してください。`);
             }
         });
 

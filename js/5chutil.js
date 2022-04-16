@@ -273,21 +273,27 @@ $(() => {
             $post.find("span.name small").contents().unwrap();
             $post.find("span.name small").remove();
 
-            // replay link を スクロール化.
-            $post.find("div.message a.reply_link").not(".href_id").each((i, e) => {
+            // reply link のリンク先の設定.
+            $post.find("div.message a.reply_link").each((i, e) => {
                 let $a = $(e);
-                let href = $a.attr("href");
-                let match = href.match(rReplyHref);
-                let replyPid = match && match[1];
-                if (replyPid && pidSet.has(replyPid)) {
-                    $a.attr("href", "javascript:void(0);").removeAttr("target").removeAttr("rel").addClass("href_id");
-                    $a.off("click");
-                    $a.on("click", function () {
-                        $('body,html').animate({ scrollLeft: $("#" + replyPid).offset().left }, 400, 'swing');
-                        $('body,html').animate({ scrollTop: $("#" + replyPid).offset().top - $("nav.navbar-fixed-top").height() - 10 }, 400, 'swing');
-                    });
+                if (!$a.attr("data-href-id")) {
+                    let match = $a.attr("href").match(rReplyHref);
+                    let replyPid = match && match[1];
+                    $a.attr("data-href-id", replyPid);
                 }
             });
+        }
+
+        $(document).on("click", "a.href_id", function () {
+            $a = $(this);
+            scrollToPid($a.attr("data-href-id"));
+        });
+
+        let scrollToPid = (pid) => {
+            if (pid) {
+                $('body,html').scrollLeft($("#" + pid).offset().left);
+                $('body,html').animate({ scrollTop: $("#" + pid).offset().top - $("nav.navbar-fixed-top").height() - 10 }, 400, 'swing');
+            }
         }
 
         // リモートスクリプトが使えない場合には、自力でメッセージ処理をしてiframeの高さ調整.
@@ -435,7 +441,31 @@ $(() => {
                     $post.find("span.number").addClass("many");
                 }
                 $post.find("span.number").html(`<a href="javascript:void(0);">${$post.find("span.number").html()}</a>`);
+
+                // back-links
+                // <span class="back-links"><a style="font-size:0.7em;margin-left: 5px;display:inline-block;" target="_blank" data-tooltip="36" href="//egg.5ch.net/test/read.cgi/game/1649341042/36" onclick="highlightReply(36, 'hover', event);">&gt;&gt;36</a></span>
+                $(document).ready(function () {
+                    setTimeout(function () {
+                        $post.find("span.back-links").remove();
+                        refPostId[value.postId].forEach(pid => $post.find("div.meta").append(`<span class="back-links gochutil"><a class="href_id" href="javascript:void(0);" style="font-size:0.7em;margin-left: 5px;display:inline-block;" data-href-id="${pid}">&gt;&gt;${pid}</a></span>`));
+                    }, 0);
+                });
             }
+
+            // replylink
+            $post.find("div.message a.reply_link").each((i, e) => {
+                let $a = $(e);
+                let replyPid = $a.attr("data-href-id");
+                let backupAttr = ["href", "target", "rel"];
+                if (replyPid && pidSet.has(replyPid)) {
+                    backupAttr.forEach(a => !$a.attr(`data-original-${a}`) && $a.attr(`data-original-${a}`, $a.attr(a)));
+                    $a.attr("href", "javascript:void(0);").removeAttr("target").removeAttr("rel").removeClass("href_id").addClass("href_id");
+                } else {
+                    backupAttr.forEach(a => $a.attr(a, $a.attr(`data-original-${a}`)));
+                    $a.removeClass("href_id");
+                }
+            });
+
             return $post;
         }
 
@@ -724,17 +754,21 @@ $(() => {
                 last: undefined,
                 from: undefined,
                 to: undefined,
-                all: undefined
+                all: undefined,
+                without1: undefined
             };
             let href = location.href;
             if (href.indexOf("?") > -1) {
                 href = href.slice(0, href.indexOf("?"));
             }
-            let match = href.match(/\/l([0-9]{1,3})$/)
+            let match = href.match(/\/l([0-9]{1,3})(n|)$/)
             if (match) {
                 ret.last = parseInt(match[1]);
+                if (match[2] == "n") {
+                    ret.without1 = true;
+                }
             }
-            match = href.match(/\/([0-9]{1,3}|)-([0-9]{1,3}|)$/);
+            match = href.match(/\/([0-9]{1,3}|)-([0-9]{1,3}|)(n|)$/);
             if (match) {
                 if (match[1]) {
                     ret.from = parseInt(match[1]);
@@ -742,8 +776,11 @@ $(() => {
                 if (match[2]) {
                     ret.to = parseInt(match[2]);
                 }
+                if (match[3] == "n") {
+                    ret.without1 = true;
+                }
             }
-            match = href.match(/.+[0-9]{4}\/$/);
+            match = href.match(/.+[0-9]{4}\/(n|)$/);
             if (match) {
                 ret.all = true;
             }
@@ -806,9 +843,10 @@ $(() => {
                                 if ($thread.find("div.post").length > 0) {
                                     let postArray = [].concat($("div.thread div.post").toArray()).concat($thread.find("div.post").toArray())
                                     if (!displayItems.all && ((displayItems.last && displayItems.last > 0) || (displayItems.to && displayItems.to > 0))) {
-                                        if (displayItems.last && displayItems.last > 0 && displayItems.last + 2 < postArray.length) {
-                                            // 最新N件よりも多いので、余剰分を削除. 実際にはN+2件が表示される(>>1と最新N+1件)
-                                            let target = postArray.slice(1, postArray.length - displayItems.last - 1);
+                                        let start = displayItems.without1 ? 0 : 1;
+                                        if (displayItems.last && displayItems.last > 0 && displayItems.last + 1 + start < postArray.length) {
+                                            // 最新N件よりも多いので、余剰分を削除. 実際にはN+1 or 2件が表示される(>>1(URL次第)と最新N+1件)
+                                            let target = postArray.slice(start, postArray.length - displayItems.last - 1);
                                             target.forEach(p => {
                                                 $(p).next("br").remove();
                                                 $(p).remove();
@@ -823,8 +861,11 @@ $(() => {
                                             });
                                         }
                                     }
-
-                                    $("div.thread div.post:last").next("br").after($thread.html());
+                                    if ($("div.thread div.post").length > 0) {
+                                        $("div.thread div.post:last").next("br").after($thread.html());
+                                    } else {
+                                        $("div.thread").append($thread.html());
+                                    }
                                 }
                             })
                             .then(() => resolve())
@@ -1018,38 +1059,46 @@ $(() => {
         let addRefData = ($posts) => {
             let postValues = $posts.toArray().map((p) => getPostValue($(p)));
 
+            let tmp = $posts.filter((i, e) => !pidSet.has(parsePostId($(e)))).find("div.message a.reply_link").toArray()
+                .map(a => $(a))
+                .map($a => { return { $a: $a, replyPid: $a.attr("data-href-id") }; });
+            let replyPostIds = tmp.flatMap(a => a.replyPid ? [a.replyPid] : []);
+
             idMap = postValues.filter(v => !pidSet.has(v.postId)).reduce((p, c) => pushArrayToMap(p, c.dateAndID?.id, c.postId), idMap);
             koro2Map = postValues.filter(v => !pidSet.has(v.postId)).reduce((p, c) => pushArrayToMap(p, c.koro2, c.postId), koro2Map);
             ipMap = postValues.filter(v => !pidSet.has(v.postId)).reduce((p, c) => pushArrayToMap(p, c.ip, c.postId), ipMap);
 
             // key: postId , value: [ref postId, ref postId, ...]
-            refPostId = $posts.filter((i, e) => !pidSet.has(parsePostId($(e)))).find("div.message a.reply_link").toArray().reduce((p, c) => {
-                let match = $(c).attr("href").match(rReplyHref);
-                let replyPid = match && match[1];
-                return pushArrayToMap(p, replyPid, parsePostId($(c).closest("div.post")));
-            }, refPostId);
+            refPostId = tmp.reduce((p, c) => pushArrayToMap(p, c.replyPid, parsePostId(c.$a.closest("div.post"))), refPostId);
 
             pidSet = postValues.reduce((p, c) => { p.add(c.postId); return p; }, pidSet);
 
             let getArr = (map, key) => key ? map[key] ?? [] : [];
-            let affedted = Array.from(postValues.flatMap(v => []
+            let related = Array.from(postValues.flatMap(v => []
                 .concat(getArr(idMap, v.dateAndID?.id))
                 .concat(getArr(koro2Map, v.koro2))
                 .concat(getArr(ipMap, v.ip))
                 .concat(getArr(refPostId, v.postId))
+                .concat(replyPostIds)
                 .concat([v.postId])).reduce((p, c) => p.add(c), new Set()));
-            return affedted;
+            return related;
         };
 
         let removeRefData = ($posts) => {
             let postValues = $posts.toArray().map((p) => getPostValue($(p)));
 
+            let tmp = $posts.filter((i, e) => !pidSet.has(parsePostId($(e)))).find("div.message a.reply_link").toArray()
+                .map(a => $(a))
+                .map($a => { return { $a: $a, replyPid: $a.attr("data-href-id") }; })
+            let replyPostIds = tmp.flatMap(a => a.replyPid ? [a.replyPid] : []);
+
             let getArr = (map, key) => key ? map[key] ?? [] : [];
-            let affedted = Array.from(postValues.flatMap(v => []
+            let related = Array.from(postValues.flatMap(v => []
                 .concat(getArr(idMap, v.dateAndID?.id))
                 .concat(getArr(koro2Map, v.koro2))
                 .concat(getArr(ipMap, v.ip))
                 .concat(getArr(refPostId, v.postId))
+                .concat(replyPostIds)
                 .concat([v.postId])).reduce((p, c) => p.add(c), new Set()));
 
             idMap = postValues.filter(v => pidSet.has(v.postId)).reduce((p, c) => removeArrayToMap(p, c.dateAndID?.id, c.postId), idMap);
@@ -1057,14 +1106,10 @@ $(() => {
             ipMap = postValues.filter(v => pidSet.has(v.postId)).reduce((p, c) => removeArrayToMap(p, c.ip, c.postId), ipMap);
 
             // key: postId , value: [ref postId, ref postId, ...]
-            refPostId = $posts.filter((i, e) => pidSet.has(parsePostId($(e)))).find("div.message a.reply_link").toArray().reduce((p, c) => {
-                let match = $(c).attr("href").match(rReplyHref);
-                let replyPid = match && match[1];
-                return removeArrayToMap(p, replyPid, parsePostId($(c).closest("div.post")));
-            }, refPostId);
+            refPostId = tmp.reduce((p, c) => removeArrayToMap(p, c.replyPid, parsePostId(c.$a.closest("div.post"))), refPostId);
 
             pidSet = postValues.reduce((p, c) => { p.delete(c.postId); return p; }, pidSet);
-            return affedted;
+            return related;
         };
 
         addRefData($("div.thread div.post"));
@@ -1090,19 +1135,22 @@ $(() => {
             let removedPosts = removedNodes.map(n => $(n)).filter($n => $n.is("div"))
                 .filter($n => $n.hasClass("post"))
                 .filter($n => $n.attr("id") && parsePostId($n));
-            let affectedPostId = Array.from(new Set([].concat(addRefData($(addedPosts.map($n => $n.get(0))))).concat(removeRefData($(removedPosts.map($n => $n.get(0)))))));
+            let relatedPostId = Array.from(new Set([].concat(addRefData($(addedPosts.map($n => $n.get(0))))).concat(removeRefData($(removedPosts.map($n => $n.get(0)))))));
             var $addedPosts = $(addedPosts.map($p => $p.get(0)));
             $addedPosts.filter("div.post").addClass("new");
             if (_.settings.app.get().newPostMarkDisplaySeconds > 0) {
                 setTimeout(() => removeNewPostMark(), _.settings.app.get().newPostMarkDisplaySeconds * 1000);
             }
             if ($addedPosts.length > 0) {
-                $("div.pagestats ul.menujust li:first-child").text(parsePostId($addedPosts.last()) + "コメント");
+                let lastPid = parsePostId($addedPosts.last())
+                $("div.pagestats ul.menujust li:first-child").text(`${lastPid}コメント`);
+                let $npb = $("div.newposts span.newpostbutton a.newpb");
+                $npb.attr("href", $npb.attr("href").replace(/([0-9]{1,4})-n$/, `${lastPid}-n`));
             }
             if (_.settings.app.get().autoscrollWhenNewPostLoad && $addedPosts.length > 0) {
                 $('body,html').animate({ scrollTop: $addedPosts.first().offset().top - $("nav.navbar-fixed-top").height() - 10 }, 400, 'swing');
             }
-            processThread(affectedPostId);
+            processThread(relatedPostId);
         });
 
         // 監視の開始

@@ -75,6 +75,7 @@ div.message span.embed:hover {
     position: relative;
     z-index: 0;
 }
+
 .backgroundwidthprogress::before {
     position: absolute;
     content: "";
@@ -159,7 +160,7 @@ span.appendnewposts:hover {
 
 span.appendnewposts.disabled {
     background-color: #aaa;
-    transition:none;
+    transition: none;
 }
 
 span.appendnewposts.disabled:hover {
@@ -168,7 +169,7 @@ span.appendnewposts.disabled:hover {
 
 span.appendnewposts.disabled_exit {
     background-color: #fff;
-    transition:none;
+    transition: none;
 }
 
 span.appendnewposts.disabled a.backgroundwidthprogress::after {
@@ -183,7 +184,7 @@ span.autoload_newposts {
     background-color: #fff;
 }
 
-span.autoload_newposts.backgroundwidthprogress{
+span.autoload_newposts.backgroundwidthprogress {
     background-color: transparent;
 }
 
@@ -196,7 +197,7 @@ span.autoload_newposts.backgroundwidthprogress::after {
     animation-duration: calc(var(--wait-animation-span));
 }
 
- div.newposts span.error_msg {
+div.newposts span.error_msg {
     color: #bb2020;
 }
 
@@ -222,6 +223,13 @@ div.new::after {
 div.new.removingnew::after {
     filter: blur(0px);
     animation: animateGlow 1.25s linear infinite, animateGlowOut 3s linear;
+}
+
+div.meta span.back-links {
+    display: none;
+}
+div.meta span.back-links.gochutil {
+    display: inline-block;
 }
 
 .loader {
