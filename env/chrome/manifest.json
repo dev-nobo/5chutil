@@ -1,8 +1,8 @@
 {
   "name": "5chutil",
-  "version": "0.1.1.6",
+  "version": "0.1.1.7",
   "manifest_version": 3,
-  "description": "5ch に便利な機能を追加",
+  "description": "5ch のスレッドページに NG や外部コンテンツ埋め込み等の便利な機能を追加する拡張機能",
   "icons": {
     "16": "icon/icon_16.png",
     "48": "icon/icon_48.png",

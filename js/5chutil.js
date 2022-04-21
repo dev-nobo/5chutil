@@ -8,6 +8,7 @@ $(() => {
         let rIp = /([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/;
         let rReplyId = /^reply-([0-9]{1,3})$/;
         let rReplyHref = /\/([0-9]{1,3})$/;
+        let rAnotherThreadHref = /(https?:\/\/.+\.5ch\.net\/test\/read.cgi\/[^/]+\/[0-9]+\/)$/
 
         let postValueCache = {};
 
@@ -273,13 +274,23 @@ $(() => {
             $post.find("span.name small").contents().unwrap();
             $post.find("span.name small").remove();
 
-            // reply link のリンク先の設定.
+            // reply link のリンク先のID設定.
             $post.find("div.message a.reply_link").each((i, e) => {
                 let $a = $(e);
                 if (!$a.attr("data-href-id")) {
                     let match = $a.attr("href").match(rReplyHref);
                     let replyPid = match && match[1];
                     $a.attr("data-href-id", replyPid);
+                }
+            });
+
+            // 別スレへのリンク.
+            $post.find("div.message a").not(".reply_link").not(".ref_another_thread").each((i, e) => {
+                let $a = $(e);
+                let match = $a.attr("href")?.match(rAnotherThreadHref);
+                if (match) {
+                    $a.addClass("ref_another_thread");
+                    $a.attr("data-href-thread", match[1]);
                 }
             });
         }
@@ -490,7 +501,7 @@ $(() => {
 
 
         let timeoutHandles = {};
-        let showPopup = (popupId, popupClass, position, innerContent, postProcess, showDelay) => {
+        let showPopup = (popupId, popupClass, position, innerContentAsync, showDelay) => {
             return function () {
                 $a = $(this);
 
@@ -507,43 +518,41 @@ $(() => {
 
                 if (offset) {
                     let innerProcess = () => {
-                        let $inner = innerContent($a);
-                        if ($inner && $inner.length > 0) {
+                        innerContentAsync($a)
+                            .then($inner => {
+                                if ($inner && $inner.length > 0) {
 
-                            let $popup = createPopup(popupId, popupClass, $inner);
-                            if (postProcess) {
-                                postProcess($popup);
-                            }
+                                    let $popup = createPopup(popupId, popupClass, $inner);
 
-                            $popup.addClass("popup").addClass("post_hover").removeClass("own_hover");
+                                    $popup.addClass("popup").addClass("post_hover").removeClass("own_hover");
 
-                            let topMargin = $("nav.navbar-fixed-top").height() + 10;
-                            let leftMargin = 10;
-                            let maxHeight = $(window).height() - topMargin - 10;
-                            let maxWidth = $(window).width() - leftMargin - 10;
+                                    let topMargin = $("nav.navbar-fixed-top").height() + 10;
+                                    let leftMargin = 10;
+                                    let maxHeight = $(window).height() - topMargin - 10;
+                                    let maxWidth = $(window).width() - leftMargin - 10;
 
-                            let positioning = () => $popup.offset({
-                                top: Math.min(offset.top, Math.max($(window).scrollTop() + topMargin, $(window).scrollTop() + topMargin + maxHeight - $popup.outerHeight())),
-                                left: Math.min(offset.left, Math.max($(window).scrollLeft() + leftMargin, $(window).scrollLeft() + leftMargin + maxWidth - $popup.outerWidth()))
+                                    let positioning = () => $popup.offset({
+                                        top: Math.min(offset.top, Math.max($(window).scrollTop() + topMargin, $(window).scrollTop() + topMargin + maxHeight - $popup.outerHeight())),
+                                        left: Math.min(offset.left, Math.max($(window).scrollLeft() + leftMargin, $(window).scrollLeft() + leftMargin + maxWidth - $popup.outerWidth()))
+                                    });
+                                    let sizing = () => {
+                                        $popup.outerHeight(Math.min($popup.outerHeight(), maxHeight));
+                                        $popup.outerWidth(Math.min($popup.outerWidth(), maxWidth));
+                                    };
+
+                                    $popup.find("img").on("load", function () {
+                                        positioning();
+                                        sizing();
+                                    });
+
+                                    $("body").append($popup);
+                                    positioning();
+
+                                    if ($popup.find("img").length <= 0) {
+                                        sizing();
+                                    }
+                                }
                             });
-                            let sizing = () => {
-                                $popup.outerHeight(Math.min($popup.outerHeight(), maxHeight));
-                                $popup.outerWidth(Math.min($popup.outerWidth(), maxWidth));
-                            };
-
-                            $popup.find("img").on("load", function () {
-                                positioning();
-                                sizing();
-                            });
-
-                            positioning();
-                            $("body").append($popup);
-
-                            if ($popup.find("img").length <= 0) {
-                                positioning();
-                                sizing();
-                            }
-                        }
                     }
 
                     if (showDelay) {
@@ -601,23 +610,29 @@ $(() => {
         }
 
         // 画像のポップアップ処理
-        $("body").on("mouseover", "div.message a.image.directlink img", showPopup("img_popup", "img_popup loader", $img => {
-            let $a = $img.closest("a");
-            if ($a.find("img.thumb_i").length > 0) {
-                return { top: $a.find("img.thumb_i").offset().top, left: $a.find("img.thumb_i").offset().left + $a.find("img.thumb_i").width() };
-            }
-        }, $img => $('<img class="popup_img loader" referrerpolicy="no-referrer" />').on("load", function () { $(this).closest("#img_popup").removeClass("loader") }).attr("src", $img.closest("a").attr("href")), false));
+        $("body").on("mouseover", "div.message a.image.directlink img", showPopup("img_popup", "img_popup loader",
+            $img => {
+                let $a = $img.closest("a");
+                if ($a.find("img.thumb_i").length > 0) {
+                    return { top: $a.find("img.thumb_i").offset().top, left: $a.find("img.thumb_i").offset().left + $a.find("img.thumb_i").width() };
+                }
+            },
+            async $img => $('<img class="popup_img loader" referrerpolicy="no-referrer" />')
+                .on("load", function () { $(this).closest("#img_popup").removeClass("loader") })
+                .attr("src", $img.closest("a").attr("href")), false)
+        );
         $("body").on("mouseout", "div.message a.image.directlink img", mouseOutPopupLink("img_popup"));
 
         // Korokoro, ip, id のレスリストポップアップ処理
         let listPopup = (spanClass, popupIdAndClass, lister, delay = false) => {
-            $("body").on("mouseover", `span.${spanClass} a`, showPopup(popupIdAndClass, `${popupIdAndClass} list_popup`, $a => { return { top: $a.offset().top - 15, left: $a.offset().left + $a.width() } }, $a => {
-                let val = getPostValue($a.closest("div.meta").parent());
-                let list = lister(val);
-                if (list.length > 0) {
-                    return $(list.map(pid => $(`div.post#${pid}`)[0])).clone();
-                }
-            }, c => c.find("div.post").after("<br>"), delay));
+            $("body").on("mouseover", `span.${spanClass} a`, showPopup(popupIdAndClass, `${popupIdAndClass} list_popup`, $a => { return { top: $a.offset().top - 15, left: $a.offset().left + $a.width() } },
+                async $a => {
+                    let val = getPostValue($a.closest("div.meta").parent());
+                    let $container = $('<div class="list_container" />');
+                    lister(val).forEach(pid => $container.append($(`div.post#${pid}`).clone()));
+                    $container.find("div.post").after("<br>");
+                    return $container;
+                }, delay));
             $("body").on("mouseout", `span.${spanClass} a`, mouseOutPopupLink(popupIdAndClass));
         };
         listPopup("ref_koro2", "koro2_popup", (v) => koro2Map[v.koro2]);
@@ -626,22 +641,43 @@ $(() => {
         listPopup("ref_posts", "ref_post_popup", (v) => refPostId[v.postId], true);
 
         // あぼーんのポップアップ処理.
-        let popupNgFunction = (showDelay) => {
-            return showPopup("abone_popup", "abone_popup", ($a) => {
-                if (_.settings.app.get().dontPopupMouseoverNgMsg) {
-                    return;
-                }
-                return $a.offset();
-            }, ($a) => {
-                let $inner = $a.closest("div.message.abone").clone().removeClass("abone");
-                $inner.find("span.abone_message").remove();
-                $inner.find("span").removeClass("abone");
-                return $inner;
-            }, undefined, showDelay);
+        let popupNgFunction = (popupIdAndClass, mouseover) => {
+            return showPopup(popupIdAndClass, popupIdAndClass,
+                $a => {
+                    if (mouseover && _.settings.app.get().dontPopupMouseoverNgMsg) {
+                        return;
+                    }
+                    return $a.offset();
+                },
+                async $a => {
+                    let $inner = $a.closest("div.message.abone").clone().removeClass("abone");
+                    $inner.find("span.abone_message").remove();
+                    $inner.find("span").removeClass("abone");
+                    return $inner;
+                }, mouseover);
         };
-        $("body").on("mouseover", "div.message.abone span.abone_message a", popupNgFunction(true));
-        $("body").on("click", "div.message.abone span.abone_message a", popupNgFunction(false));
+
+        $("body").on("mouseover", "div.message.abone span.abone_message a", popupNgFunction("abone_popup", true));
+        $("body").on("click", "div.message.abone span.abone_message a", popupNgFunction("abone_popup", false));
         $("body").on("mouseout", "div.message.abone span.abone_message a", mouseOutPopupLink("abone_popup"));
+
+        // 別スレへのリンクのポップアップ処理.
+        $("body").on("mouseover", "div.message a.ref_another_thread", showPopup("another_thread_popup", "another_thread_popup", $a => { return { top: $a.offset().top - 15, left: $a.offset().left + $a.width() } },
+            $a => {
+                let url = $a.attr("data-href-thread") + "1";
+                return fetchInner(url)
+                    .then(doc => $(doc).find("div.thread div.post:first").clone())
+                    .then($p => {
+                        if ($p.length == 0) {
+                            return;
+                        }
+                        $p.find("a.reply_link").contents().unwrap();
+                        $p.find("a.reply_link").remove();
+                        initializePost($p);
+                        return $p;
+                    });
+            }, true));
+        $("body").on("mouseout", "div.message a.ref_another_thread", mouseOutPopupLink("another_thread_popup"));
 
         let closestPost = ($a) => {
             let $post = $a.closest("div.post");
@@ -804,6 +840,30 @@ $(() => {
         }
         controlReloadControler();
 
+        let fetchInner = (url) => {
+            return fetch(url)
+                .then(response => {
+                    if (response.ok) {
+                        return response.arrayBuffer();
+                    } else {
+                        let err = new Error(`fetch response url:${response.url} code:${response.status}`);
+                        err.httpStatus = response.status;
+                        throw err;
+                    }
+                })
+                .catch(err => {
+                    if (err.httpStatus != 500) {
+                        // データなしの場合500が返ってくるので、無視.
+                        throw err;
+                    }
+                })
+                .then(ab => new TextDecoder(document.characterSet).decode(ab))
+                .then(html => {
+                    let parser = new DOMParser();
+                    return parser.parseFromString(html, "text/html");
+                });
+        };
+
         // 新着レスの取得と追加
         let fetching = false;
 
@@ -815,75 +875,54 @@ $(() => {
 
         // 新着レスの取得と追加処理.
         let fetchAndAppendNewPost = () => {
-            return new Promise((resolve, reject) => {
-                if (canAppendNewPost() && !fetching) {
-                    let newPid = lastPostId() + 1;
-                    let match = location.href.match(/^(.+[0-9]{4})\/.*?$/);
-                    if (match) {
-                        let url = match[1] + "/" + newPid + "-n";
-                        fetching = true;
-                        removeNewPostMark();
-                        showProcessingMessage();
-                        fetch(url)
-                            .then(response => {
-                                if (response.ok) {
-                                    return response.arrayBuffer();
-                                }
-                                let err = new Error(`fetch response url:${response.url} code:${response.status}`);
-                                err.httpStatus = response.status;
-                                throw err;
-                            })
-                            .then(ab => new TextDecoder(document.characterSet).decode(ab))
-                            .then(txt => {
-                                let parser = new DOMParser();
-                                let doc = parser.parseFromString(txt, "text/html");
-                                let $thread = $(doc).find("div.thread");
-                                $thread.children().not("div.post").remove();
-                                $thread.find("div.post").after("<br>");
-                                if ($thread.find("div.post").length > 0) {
-                                    let postArray = [].concat($("div.thread div.post").toArray()).concat($thread.find("div.post").toArray())
-                                    if (!displayItems.all && ((displayItems.last && displayItems.last > 0) || (displayItems.to && displayItems.to > 0))) {
-                                        let start = displayItems.without1 ? 0 : 1;
-                                        if (displayItems.last && displayItems.last > 0 && displayItems.last + 1 + start < postArray.length) {
-                                            // 最新N件よりも多いので、余剰分を削除. 実際にはN+1 or 2件が表示される(>>1(URL次第)と最新N+1件)
-                                            let target = postArray.slice(start, postArray.length - displayItems.last - 1);
-                                            target.forEach(p => {
-                                                $(p).next("br").remove();
-                                                $(p).remove();
-                                            });
-                                        }
-                                        if (displayItems.to && displayItems.to > 0) {
-                                            // Nまで表示で最終がオーバーしたものを削除.
-                                            let target = postArray.filter(p => { let pid = parsePostId($(p)); return pid && parseInt(pid) && parseInt(pid) > displayItems.to; })
-                                            target.forEach(p => {
-                                                $(p).next("br").remove();
-                                                $(p).remove();
-                                            });
-                                        }
+            if (canAppendNewPost() && !fetching) {
+                let newPid = lastPostId() + 1;
+                let match = location.href.match(/^(.+[0-9]{4})\/.*?$/);
+                if (match) {
+                    let url = match[1] + "/" + newPid + "-n";
+                    fetching = true;
+                    removeNewPostMark();
+                    showProcessingMessage();
+                    return fetchInner(url)
+                        .then(doc => {
+                            let $thread = $(doc).find("div.thread");
+                            $thread.children().not("div.post").remove();
+                            $thread.find("div.post").after("<br>");
+                            if ($thread.find("div.post").length > 0) {
+                                let postArray = [].concat($("div.thread div.post").toArray()).concat($thread.find("div.post").toArray())
+                                if (!displayItems.all && ((displayItems.last && displayItems.last > 0) || (displayItems.to && displayItems.to > 0))) {
+                                    let start = displayItems.without1 ? 0 : 1;
+                                    if (displayItems.last && displayItems.last > 0 && displayItems.last + 1 + start < postArray.length) {
+                                        // 最新N件よりも多いので、余剰分を削除. 実際にはN+1 or 2件が表示される(>>1(URL次第)と最新N+1件)
+                                        let target = postArray.slice(start, postArray.length - displayItems.last - 1);
+                                        target.forEach(p => {
+                                            $(p).next("br").remove();
+                                            $(p).remove();
+                                        });
                                     }
-                                    if ($("div.thread div.post").length > 0) {
-                                        $("div.thread div.post:last").next("br").after($thread.html());
-                                    } else {
-                                        $("div.thread").append($thread.html());
+                                    if (displayItems.to && displayItems.to > 0) {
+                                        // Nまで表示で最終がオーバーしたものを削除.
+                                        let target = postArray.filter(p => { let pid = parsePostId($(p)); return pid && parseInt(pid) && parseInt(pid) > displayItems.to; })
+                                        target.forEach(p => {
+                                            $(p).next("br").remove();
+                                            $(p).remove();
+                                        });
                                     }
                                 }
-                            })
-                            .then(() => resolve())
-                            .catch(err => {
-                                if (err.httpStatus != 500) {
-                                    // データなしの場合500が返ってくるので、無視.
-                                    reject(err)
+                                if ($("div.thread div.post").length > 0) {
+                                    $("div.thread div.post:last").next("br").after($thread.html());
                                 } else {
-                                    resolve();
+                                    $("div.thread").append($thread.html());
                                 }
-                            })
-                            .finally(() => {
-                                fetching = false;
-                                hideProcessingMessage();
-                            });
-                    }
+                            }
+                        })
+                        .finally(() => {
+                            fetching = false;
+                            hideProcessingMessage();
+                        });
                 }
-            });
+            }
+            return Promise.resolve();
         }
 
         let waitSecondsForAppendNewPost = _.settings.app.get().waitSecondsForAppendNewPost;
@@ -893,7 +932,7 @@ $(() => {
                 fetchAndAppendNewPost()
                     .then(() => $("div.newposts span.error_msg span.msg").text(""))
                     .catch(e => {
-                        if (e.httpStatus = 410) {
+                        if (e.httpStatus == 410) {
                             // gone.
                             $("div.newposts span.error_msg span.msg").text("410 GONE が応答されました。しばらく待ちましょう。");
                         }

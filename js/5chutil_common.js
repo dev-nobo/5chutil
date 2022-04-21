@@ -173,15 +173,7 @@ var GOCHUTIL = GOCHUTIL || {};
             words: new _.classes.wordSetting("settings.ng.words", [], 30),
 
             init: async function () {
-                await Promise.all([
-                    this.names.load(),
-                    this.trips.load(),
-                    this.slips.load(),
-                    this.koro2s.load(),
-                    this.ips.load(),
-                    this.dateAndIDs.load(),
-                    this.words.load()
-                ]);
+                await Promise.all(Object.values(this).filter(v => typeof (v) !== 'function' && v["load"] && typeof (v["load"]) === 'function').map(v => v.load()));
             }
         },
         app: new _.classes.setting("settings.app", defaultAppSetting),
