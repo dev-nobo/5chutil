@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         5chutil
 // @namespace    5chutil
-// @version      0.1.1.8
+// @version      0.1.1.9
 // @description  5ch のスレッドページに NG や外部コンテンツ埋め込み等の便利な機能を追加する
 // @author       5chutil dev
 // @match        *://*.5ch.net/test/read.cgi/*
@@ -831,7 +831,6 @@ span.notes {
     $(() => {
         let top = $("nav.navbar-fixed-top").height() + 10;
         let right = 230;
-        console.log(right);
 
         $("body").on("click", "#gochutil_setting", function () {
             if ($("#gochutil_option_view").css("display") == "none") {
@@ -1440,7 +1439,6 @@ $(() => {
                             $a.find('div[div="thumb5ch"]').remove();
                             let $clone = $a.clone().addClass("thumbnail_gochutil");
                             $clone.html("").append($("<div></div>").addClass("thumb5ch gochutil").attr("div", "thumb5ch").append($("<img></img>").addClass("thumb_i").attr("src", dataUrl)));
-                            console.log($clone.get(0))
                             $a.after($clone);
                         })
                         .catch(err => { if (err.httpStatus != 202) console.error(err); });

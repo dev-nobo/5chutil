@@ -335,7 +335,6 @@ $(() => {
                             $a.find('div[div="thumb5ch"]').remove();
                             let $clone = $a.clone().addClass("thumbnail_gochutil");
                             $clone.html("").append($("<div></div>").addClass("thumb5ch gochutil").attr("div", "thumb5ch").append($("<img></img>").addClass("thumb_i").attr("src", dataUrl)));
-                            console.log($clone.get(0))
                             $a.after($clone);
                         })
                         .catch(err => { if (err.httpStatus != 202) console.error(err); });
