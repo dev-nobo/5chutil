@@ -9,16 +9,30 @@ var GOCHUTIL = GOCHUTIL || {};
     _.env.allowRemoteScript = false;
 
     // ==================
+    let b = chrome || browser;
+
     _.storage.get = async (key) => {
-        var val = await chrome.storage.local.get(this.key);
+        var val = await b.storage.local.get(this.key);
         if (val && val[key]) {
             return val[key];
         }
     }
 
     _.storage.set = async (key, val) => {
-        await chrome.storage.local.set({ [key]: val });
+        await b.storage.local.set({ [key]: val });
     }
+
+    _.storage.clear = async () => {
+        await b.storage.local.clear();
+    }
+
+    _.injectJs = () => {
+        let body = document.getElementsByTagName('body')[0];
+        let scr = document.createElement('script');
+        scr.setAttribute('type', 'text/javascript');
+        scr.setAttribute('src', b.runtime.getURL('js/5chutil_inject.js'));
+        body?.appendChild(scr);
+    };
     // ==================
 
 }(this));

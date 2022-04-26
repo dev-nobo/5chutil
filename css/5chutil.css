@@ -46,12 +46,46 @@ div.message span.ng_word_wrapper {
     background-color: #ff6060;
 }
 
-div#img_popup img.popup_img {
+div.img_popup div.img_container {
+    position: relative;
+}
+
+div.img_popup div.img_container img {
     max-width: 800px;
     max-height: 600px;
-    min-width: 60px;
-    min-height: 60px;
-    z-index: 10;
+    min-width: 250px;
+    min-height: 150px;
+}
+
+div.img_popup div.img_container.blur img {
+    filter: blur(10px);
+}
+
+div.img_popup div.img_container div.remove_blur {
+    display: none;
+}
+
+div.img_popup div.img_container.blur div.remove_blur {
+    position: absolute;
+    display: block;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 100%;
+    width: 100%;
+    z-index: 1;
+    display: flex;
+    cursor: default;
+    overflow: hidden;
+    justify-content: center;
+    align-items: center;
+    font-size: 160%;
+    font-weight: bold;
+    color: #ffffff;
+    text-shadow: 2px 2px 10px #555,
+        -2px 2px 10px #555,
+        2px -2px 10px #555,
+        -2px -2px 10px #555;
 }
 
 div.message span.embed {
@@ -225,9 +259,6 @@ div.new.removingnew::after {
     animation: animateGlow 1.25s linear infinite, animateGlowOut 3s linear;
 }
 
-div.meta span.back-links {
-    display: none;
-}
 div.meta span.back-links.gochutil {
     display: inline-block;
 }

@@ -1,14 +1,18 @@
 // ==UserScript==
 // @name         5chutil
 // @namespace    5chutil
-// @version      0.1.1.7
+// @version      0.1.1.8
 // @description  5ch のスレッドページに NG や外部コンテンツ埋め込み等の便利な機能を追加する
 // @author       5chutil dev
 // @match        *://*.5ch.net/test/read.cgi/*
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_listValues
+// @grant        GM_deleteValue
 // @grant        GM.getValue
 // @grant        GM.setValue
+// @grant        GM.listValues
+// @grant        GM.deleteValue
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js
 // @license MIT
 // ==/UserScript==
@@ -35,6 +39,23 @@ var GOCHUTIL = GOCHUTIL || {};
         _.storage.set = GM.setValue
     else
         _.storage.set = GM_setValue
+
+    let listValues;
+    if (typeof GM_listValues === 'undefined')
+        listValues = GM.listValues
+    else
+        listValues = GM_listValues
+
+    let deleteValue;
+    if (typeof GM_deleteValue === 'undefined')
+        deleteValue = GM.deleteValue
+    else
+        deleteValue = GM_deleteValue
+
+    _.storage.clear = async () => {
+        let keys = await listValues;
+        keys.forEach(async k => await deleteValue(k));
+    }
 
     //// 5chutil.css
     const gochutilcss = `
@@ -95,7 +116,8 @@ var GOCHUTIL = GOCHUTIL || {};
 
     $(() => {
         let top = $("nav.navbar-fixed-top").height() + 10;
-        let right = 20;
+        let right = 230;
+        console.log(right);
 
         $("body").on("click", "#gochutil_setting", function () {
             if ($("#gochutil_option_view").css("display") == "none") {
@@ -120,6 +142,15 @@ var GOCHUTIL = GOCHUTIL || {};
         $option.css("top", top + $settingLink.height() + 5);
         $option.css("right", right);
     })
+
+    //// 5chutil_inject.js
+    const gochutil_injectjs = function () {/*
+//$[[FILE:js/5chutil_inject.js]]
+*/}.toString().split(/\/\*|\*\//)[1];
+
+    _.injectJs = () => {
+        $('body').append(`<script type="text/javascript">${gochutil_injectjs}</script>`);
+    };
 }(this));
 
 //$[[FILE:js/5chutil_common.js]]

@@ -1,6 +1,6 @@
 {
   "name": "5chutil",
-  "version": "0.1.1.7",
+  "version": "0.1.1.8",
   "manifest_version": 3,
   "description": "5ch のスレッドページに NG や外部コンテンツ埋め込み等の便利な機能を追加する拡張機能",
   "icons": {
@@ -26,5 +26,11 @@
     "default_icon": "icon/icon_16.png",
     "default_title":"5chutil設定",
     "default_popup":"html/options.html"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [ "js/5chutil_inject.js" ],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

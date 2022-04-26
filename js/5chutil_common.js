@@ -6,7 +6,8 @@ var GOCHUTIL = GOCHUTIL || {};
 
     _.classes.setting = function (key, initValue) {
         this.key = key;
-        this.setting = initValue
+        this.initValue = initValue;
+        this.setting = initValue;
     };
 
     _.classes.setting.prototype.load = async function () {
@@ -41,6 +42,11 @@ var GOCHUTIL = GOCHUTIL || {};
 
     _.classes.setting.prototype.get = function () {
         return this.setting
+    };
+
+    _.classes.setting.prototype.reset = async function () {
+        this.setting = this.initValue;
+        await this.save();
     };
 
     // ==================
@@ -105,6 +111,10 @@ var GOCHUTIL = GOCHUTIL || {};
         return this._maxSize;
     };
 
+    _.classes.arraySetting.prototype.replaceString = function (str, replacer) {
+        return this.setting.reduce((p, c) => p.replaceAll(c, replacer(c)), str);
+    };
+
     // ==================
 
     _.classes.dateAndIDSetting = function (key, initValue, maxSize = 100) {
@@ -141,9 +151,15 @@ var GOCHUTIL = GOCHUTIL || {};
         return this.setting.some(w => msg.indexOf(w) >= 0);
     };
 
-    _.classes.wordSetting.prototype.replaceWords = function (innerHTML, replacer) {
-        return this.setting.reduce((p, c) => p.replaceAll(c, replacer(c)), innerHTML);
-    };
+    // div.ad--bottom, div.ad--right > *, div#banner, div[id^="horizontalbanners"], div#AD_e4940a622def4b87c34cd9b928866823_1, div#ads-ADU-DYQA7DD0, div.footer.push + div, iframe[src$="://cache.send.microad.jp/js/cookie_loader.html"]
+    let defaultDeleteSelectors = ``;
+
+    let defaultCustomCss = `div.list_popup { line-height: 15px; }
+div.list_popup span { font-size: 13px; }
+div.list_popup span.control_link { font-size: 12px; }
+div.list_popup div.meta { white-space: nowrap; }
+div.list_popup div.post { margin-bottom: 4px; padding:4px; }
+div.list_popup div.post div.message { padding: 2px 0 1px; }`;
 
     // ==================
 
@@ -153,6 +169,7 @@ var GOCHUTIL = GOCHUTIL || {};
         dontPopupMouseoverNgMsg: false,
         autoscrollWhenNewPostLoad: false,
         autoEmbedContents: false,
+        blurImagePopup: false,
         idManyCount: 5,
         koro2ManyCount: 5,
         ipManyCount: 5,
@@ -160,8 +177,12 @@ var GOCHUTIL = GOCHUTIL || {};
         newPostMarkDisplaySeconds: 30,
         autoloadIntervalSeconds: 60,
         allowUnforcusAutoloadCount: 10,
-        waitSecondsForAppendNewPost: 10
+        waitSecondsForAppendNewPost: 10,
+        customCss: defaultCustomCss,
+        deleteSelectors: defaultDeleteSelectors
     };
+    let appSetting = Object.assign({}, defaultAppSetting);
+
     _.settings = {
         ng: {
             names: new _.classes.arraySetting("settings.ng.names", []),
@@ -174,13 +195,22 @@ var GOCHUTIL = GOCHUTIL || {};
 
             init: async function () {
                 await Promise.all(Object.values(this).filter(v => typeof (v) !== 'function' && v["load"] && typeof (v["load"]) === 'function').map(v => v.load()));
+            },
+
+            reset: async function () {
+                await Promise.all(Object.values(this).filter(v => typeof (v) !== 'function' && v["reset"] && typeof (v["reset"]) === 'function').map(v => v.reset()));
             }
         },
+
         app: new _.classes.setting("settings.app", defaultAppSetting),
 
         init: async function () {
             await Promise.all([this.ng.init(), this.app.load()]);
-            this.app.set(Object.assign(defaultAppSetting, this.app.get()));
+            this.app.set(Object.assign(appSetting, this.app.get()));
+        },
+
+        reset: async function () {
+            await Promise.all([this.ng.reset(), this.app.reset()]);
         }
     };
 

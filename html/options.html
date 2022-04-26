@@ -24,15 +24,20 @@
                     <li><input type="checkbox" id="dontPopupMouseoverNgMsg" class="app dontPopupMouseoverNgMsg" /><label for="dontPopupMouseoverNgMsg">あぼーんをマウスオーバーでポップアップしない<br>(クリックではポップアップする)</label></li>
                     <li><input type="checkbox" id="autoscrollWhenNewPostLoad" class="app autoscrollWhenNewPostLoad" /><label for="autoscrollWhenNewPostLoad">新着取得時にスクロールする</label></li>
                     <li><input type="checkbox" id="autoEmbedContents" class="app autoEmbedContents" /><label for="autoEmbedContents">自動でimgur等の外部データの埋め込み処理を行う</label></li>
+                    <li><input type="checkbox" id="blurImagePopup" class="app blurImagePopup" /><label for="blurImagePopup">画像のポップアップをぼかす(ぼかし画像クリックでぼかし解除)</label></li>
                     <li>IDが<input type="number" maxlength="2" class="app idManyCount" min="1" max="99" />個以上は赤くする&nbsp;<button type="button" class="app save idManyCount">保存</button></li>
                     <li>Korokoro(SLIP)が<input type="number" maxlength="2" class="app koro2ManyCount" min="1" max="99" />個以上は赤くする&nbsp;<button type="button" class="app save koro2ManyCount">保存</button></li>
                     <li>IP(SLIP)が<input type="number" maxlength="2" class="app ipManyCount" min="1" max="99" />個以上は赤くする&nbsp;<button type="button" class="app save ipManyCount">保存</button></li>
                     <li>参照POSTが<input type="number" maxlength="2" class="app refPostManyCount" min="1" max="99" />個以上は赤くする&nbsp;<button type="button" class="app save refPostManyCount">保存</button></li>
                     <li>自動ロード間隔<input type="number" maxlength="4" class="app autoloadIntervalSeconds" min="60" max="3600" />秒&nbsp;<button type="button" class="app save autoloadIntervalSeconds">保存</button></li>
                     <li>非アクティブ時の許容自動ロード回数<input type="number" maxlength="2" class="app allowUnforcusAutoloadCount" min="1" max="99" />回&nbsp;<button type="button" class="app save allowUnforcusAutoloadCount">保存</button></li>
+                    <li>カスタムCSS<br><textarea class="app customCss" wrap="off" rows="10" cols="60" ></textarea><br><button type="button" class="app save customCss">保存</button></li>
+                    <li>削除セレクタ<input style="margin-left: 50px; width:200px; color:transparent; border:none;" value='div.ad--bottom, div.ad--right > *, div#banner, div[id^="horizontalbanners"], div#AD_e4940a622def4b87c34cd9b928866823_1, div#ads-ADU-DYQA7DD0, div.footer.push + div, iframe[src$="://cache.send.microad.jp/js/cookie_loader.html"]' /><br>
+                        <textarea class="app deleteSelectors" wrap="off" rows="4" cols="60" ></textarea><br><button type="button" class="app save deleteSelectors">保存</button></li>
                 </ul>
             </div>
-            <span class="notes">※ 設定変更時は5chページ要リロード</span>
+            <span class="notes">※ 設定変更時は5chページ要リロード</span><br>
+            <button type="button" class="app reset">動作設定を全てデフォルトに戻す</button>
         </section>
         <h2>NG 設定</h2>
         <section>

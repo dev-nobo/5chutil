@@ -17,6 +17,7 @@ $(() => {
         initializeCheckboxSetting("dontPopupMouseoverNgMsg");
         initializeCheckboxSetting("autoscrollWhenNewPostLoad");
         initializeCheckboxSetting("autoEmbedContents");
+        initializeCheckboxSetting("blurImagePopup");
 
         let initializeNumberSetting = (propName) => {
             let $input = $(`input.app.${propName}`);
@@ -41,6 +42,26 @@ $(() => {
         initializeNumberSetting("refPostManyCount");
         initializeNumberSetting("autoloadIntervalSeconds");
         initializeNumberSetting("allowUnforcusAutoloadCount");
+
+        let initializeTextareaSetting = (propName) => {
+            let $text = $(`textarea.app.${propName}`);
+            $text.val(_.settings.app.get()[propName]);
+            $(`button.app.save.${propName}`).off("click");
+            $(`button.app.save.${propName}`).on("click", async function () {
+                let setting = _.settings.app.get();
+                setting[propName] = $text.val();
+                await _.settings.app.set(setting);
+            });
+        }
+
+        initializeTextareaSetting("customCss");
+        initializeTextareaSetting("deleteSelectors");
+
+        $("button.app.reset").off("click");
+        $("button.app.reset").on("click", async function () {
+            await _.settings.app.reset();
+            _.initOptions();
+        });
 
         let vToOption = (v, valueToOption) => {
             let o = valueToOption(v);
