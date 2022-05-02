@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         5chutil
 // @namespace    5chutil
-// @version      0.1.1.9
+// @version      0.1.1.11
 // @description  5ch のスレッドページに NG や外部コンテンツ埋め込み等の便利な機能を追加する
 // @author       5chutil dev
 // @match        *://*.5ch.net/test/read.cgi/*
@@ -861,7 +861,7 @@ span.notes {
 $(() => {
     let intervals = {};
     let counts = {};
-    let removeEvent = ($obj, target) => $._data($obj.get(0), "events")?.[target.type]?.filter(e => e.selector == target.selector).reduce((p, c) => p.add($obj.off(c.type, c.selector), $obj.off(c.origType, c.selector)), $());
+    let removeEvent = ($obj, target) => $._data($obj.get(0), "events")?.[target.type]?.filter(e => e.selector == target.selector).reduce((p, c) => p.add($obj.off(c.type, c.selector), $obj.off(c.origType, c.selector)), $())?.length;
     // poppup, highlight 処理を実行しないようにイベントを削除する.
     [{ type: "mouseover", selector: "a" }, { type: "mouseout", selector: "a" }, { type: "click", selector: ".uid" }]
         .filter(t => !removeEvent($(document), t))
@@ -1309,7 +1309,7 @@ $(() => {
 
         let initializePost = async ($post) => {
             if ($post.attr("data-initialized")) {
-                return;
+                return $post;
             }
             // direct link 化
             $post.find("div.message a").not(".reply_link").not(".directlink").each((i, e) => {
@@ -1446,7 +1446,8 @@ $(() => {
             });
 
             $post.attr("data-initialized", true);
-        }
+            return $post;
+        };
 
         $(document).on("click", "a.href_id", function () { scrollToPid($(this).attr("data-href-id")); });
 
@@ -1455,7 +1456,7 @@ $(() => {
                 $('body,html').scrollLeft($("#" + pid).offset().left);
                 $('body,html').animate({ scrollTop: $("#" + pid).offset().top - $("nav.navbar-fixed-top").height() - 10 }, 400, 'swing');
             }
-        }
+        };
 
         // リモートスクリプトが使えない場合には、自力でメッセージ処理をしてiframeの高さ調整.
         // サービス側の仕様が変わったら動かなくなるので、できればブラックボックスのままリモートスクリプトに処理させたい...
@@ -1891,7 +1892,7 @@ $(() => {
                     let value = parser($post);
                     if (value) {
                         await handler(value);
-                        processPosts(lister(value));
+                        processPosts(lister && lister(value));
                         removeAllPopup();
                     }
                 }
@@ -1993,7 +1994,7 @@ $(() => {
                     ret.without1 = true;
                 }
             }
-            match = href.match(/.+[0-9]{4}\/(n|)$/);
+            match = href.match(/.+[0-9]{4}\/?(n|)$/);
             if (match) {
                 ret.all = true;
             }

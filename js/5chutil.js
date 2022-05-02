@@ -205,7 +205,7 @@ $(() => {
 
         let initializePost = async ($post) => {
             if ($post.attr("data-initialized")) {
-                return;
+                return $post;
             }
             // direct link 化
             $post.find("div.message a").not(".reply_link").not(".directlink").each((i, e) => {
@@ -342,7 +342,8 @@ $(() => {
             });
 
             $post.attr("data-initialized", true);
-        }
+            return $post;
+        };
 
         $(document).on("click", "a.href_id", function () { scrollToPid($(this).attr("data-href-id")); });
 
@@ -351,7 +352,7 @@ $(() => {
                 $('body,html').scrollLeft($("#" + pid).offset().left);
                 $('body,html').animate({ scrollTop: $("#" + pid).offset().top - $("nav.navbar-fixed-top").height() - 10 }, 400, 'swing');
             }
-        }
+        };
 
         // リモートスクリプトが使えない場合には、自力でメッセージ処理をしてiframeの高さ調整.
         // サービス側の仕様が変わったら動かなくなるので、できればブラックボックスのままリモートスクリプトに処理させたい...
@@ -787,7 +788,7 @@ $(() => {
                     let value = parser($post);
                     if (value) {
                         await handler(value);
-                        processPosts(lister(value));
+                        processPosts(lister && lister(value));
                         removeAllPopup();
                     }
                 }
@@ -889,7 +890,7 @@ $(() => {
                     ret.without1 = true;
                 }
             }
-            match = href.match(/.+[0-9]{4}\/(n|)$/);
+            match = href.match(/.+[0-9]{4}\/?(n|)$/);
             if (match) {
                 ret.all = true;
             }
