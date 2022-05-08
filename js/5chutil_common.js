@@ -217,4 +217,20 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
     _.init = async function () {
         await _.settings.init();
     };
+
+    let timers = {};
+    _.timeStart = (name) => {
+        timers[name] = timers[name] || {};
+        timers[name].start = performance.now();
+    };
+    _.timeStop = (name) => {
+        timers[name].elapsed = timers[name]?.elapsed || 0;
+        timers[name].elapsed += performance.now() - timers[name].start;
+        timers[name].start = undefined;
+    };
+    _.timeLog = () => {
+        Object.entries(timers).forEach(([k, v]) => {
+            console.log(`time ${k} : ${v.elapsed} ms`);
+        });
+    };
 }(this));

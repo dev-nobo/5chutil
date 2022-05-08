@@ -1,4 +1,4 @@
-$(() => {
+(async function (global) {
     var _ = GOCHUTIL;
 
     _.initOptions = () => {
@@ -146,5 +146,8 @@ $(() => {
         _.initOptions();
     };
 
-    _.init().then(r => main());
-});
+    await _.init();
+    $(function () {
+        main();
+    });
+}(this));

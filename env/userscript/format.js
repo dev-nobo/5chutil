@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         5chutil
 // @namespace    5chutil
-// @version      0.1.1.11
+// @version      0.1.1.12
 // @description  5ch のスレッドページに NG や外部コンテンツ埋め込み等の便利な機能を追加する
 // @author       5chutil dev
 // @match        *://*.5ch.net/test/read.cgi/*
@@ -13,7 +13,9 @@
 // @grant        GM.setValue
 // @grant        GM.listValues
 // @grant        GM.deleteValue
+// @run-at       document-start
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js
+
 // @license MIT
 // ==/UserScript==
 
@@ -24,6 +26,7 @@ var GOCHUTIL = GOCHUTIL || {};
 
     _.storage = {};
     _.env = {};
+    _.$ = _.$ || jQuery?.noConflict?.(true);
 
     // ====== 環境依存 userscript, chrome, firefox ======
     _.env.allowRemoteScript = true;
@@ -52,10 +55,7 @@ var GOCHUTIL = GOCHUTIL || {};
     else
         deleteValue = GM_deleteValue
 
-    _.storage.clear = async () => {
-        let keys = await listValues;
-        keys.forEach(async k => await deleteValue(k));
-    }
+    _.storage.clear = async () => await Promise.all((await listValues()).map(async k => await deleteValue(k)));
 
     //// 5chutil.css
     const gochutilcss = `
@@ -75,6 +75,7 @@ var GOCHUTIL = GOCHUTIL || {};
 //$[[FILE:css/options.css]]
 `;
 
+    let $ = _.$;
     _.addStyle = ($html, css) => {
         let $head = $html.find('head');
         if ($head.length > 0) {
@@ -88,33 +89,33 @@ var GOCHUTIL = GOCHUTIL || {};
         }
     };
 
-    _.addStyle($("html"), gochutilcss);
+    $(function () {
+        _.addStyle($("html"), gochutilcss);
 
-    let parser = new DOMParser();
-    let doc = parser.parseFromString(optionshtml, "text/html");
-    let $optionshtml = $(doc).find("html");
-    $optionshtml.find("head script").remove();
-    $optionshtml.find("head link").remove();
+        let parser = new DOMParser();
+        let doc = parser.parseFromString(optionshtml, "text/html");
+        let $optionshtml = $(doc).find("html");
+        $optionshtml.find("head script").remove();
+        $optionshtml.find("head link").remove();
 
-    $optionshtml.find("head").append(`<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" type="text/javascript"></script>`);
-    unsafeWindow.GOCHUTIL = _;
-    $optionshtml.find("head").append(`
+        $optionshtml.find("head").append(`<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" type="text/javascript"></script>`);
+        unsafeWindow.GOCHUTIL = _;
+        $optionshtml.find("head").append(`
 <script type="text/javascript">
     var GOCHUTIL = window.parent.GOCHUTIL;
 </script>`);
-    _.addStyle($optionshtml, optionscss);
-    _.addScript($optionshtml, optionsjs);
+        _.addStyle($optionshtml, optionscss);
+        _.addScript($optionshtml, optionsjs);
 
-    let $optionView = $(`
+        let $optionView = $(`
 <div id="gochutil_option_view" class="gochutil_option_container" style="display: none; position: fixed; top: 0;left: 0;right: 0;bottom: 0;width: 100%;height: 100%;z-index: 11;">
     <div class="gochutil_option_container_bg" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; z-index: 12; display: block;" />
     <div class="gochutil_option" style="position:absolute; height:auto; width:450; z-index:13; display:inline-block;"><iframe frameborder="0" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; border:2px black solid;"></iframe></div>
 </div>`);
-    $optionView.find("iframe").attr("srcdoc", $optionshtml.html());
+        $optionView.find("iframe").attr("srcdoc", $optionshtml.html());
 
-    var $settingLink = $(`<div id="gochutil_setting" style="position: fixed;"><a href="javascript:void(0);">5chutil設定</a></div>`);
+        var $settingLink = $(`<div id="gochutil_setting" style="position: fixed;"><a href="javascript:void(0);">5chutil設定</a></div>`);
 
-    $(() => {
         let top = $("nav.navbar-fixed-top").height() + 10;
         let right = 230;
 
@@ -140,16 +141,13 @@ var GOCHUTIL = GOCHUTIL || {};
         let $option = $optionView.find("div.gochutil_option");
         $option.css("top", top + $settingLink.height() + 5);
         $option.css("right", right);
-    })
 
-    //// 5chutil_inject.js
-    const gochutil_injectjs = function () {/*
+        //// 5chutil_inject.js
+        const gochutil_injectjs = function () {/*
 //$[[FILE:js/5chutil_inject.js]]
 */}.toString().split(/\/\*|\*\//)[1];
-
-    _.injectJs = () => {
-        $('body').append(`<script type="text/javascript">${gochutil_injectjs}</script>`);
-    };
+        _.injectJs = () => $('body').append(`<script type="text/javascript">${gochutil_injectjs}</script>`)
+    });
 }(this));
 
 //$[[FILE:js/5chutil_common.js]]

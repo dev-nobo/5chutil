@@ -30,11 +30,11 @@ span.mail {
     margin-right: 5px;
 }
 
-span.number.ref_posts a {
+span.number a.ref_posts {
     text-decoration: underline !important;
 }
 
-span.number.ref_posts.many a {
+span.number a.ref_posts.many {
     color: #bb2020;
 }
 
