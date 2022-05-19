@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         5chutil
 // @namespace    5chutil
-// @version      0.1.1.12
+// @version      0.1.1.13
 // @description  5ch のスレッドページに NG や外部コンテンツ埋め込み等の便利な機能を追加する
 // @author       5chutil dev
 // @match        *://*.5ch.net/test/read.cgi/*
@@ -1581,10 +1581,6 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
             };
         };
 
-        let awaitPostsProcess = () => {
-            return
-        };
-
         let processPostsInternal = async (array, init = false) => {
             // 頭から処理していると遅いので、画面に表示しているデータに近いものからバックグラウンドで処理をする.
             // スクロール位置と画面サイズの半分の位置にあるデータのindexとの差分の絶対値を距離としてソートし、その順に処理する.(実際のoffset位置で計算すると重いのでindex差分絶対値でソートしてしまう)
@@ -1674,8 +1670,6 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
             }
 
             // 制御用リンク追加.
-            // <div class="meta"><span class="number">56</span><span class="name"><b>名無しさん＠お腹いっぱい。 </b><span class="control_link ng_control_link add ng_name" title="+NG Name">[<a href="javascript:void(0)">+</a>]</span>(ｽｯｯﾌﾟ <span class="koro2 gochutil_wrapper">Sdff-WqW4</span><span class="control_link ng_control_link add ng_koro2" title="+NG Korokoro">[<a href="javascript:void(0)">+</a>]</span><span class="control_link ref_koro2 count_link">[1/1]</span>)<b></b></span><span class="mail">[sage]</span><span class="date">2022/05/04(水) 19:02:19.82</span><span class="uid">ID:<span class="uid_only gochutil_wrapper">Dx1DVje+d</span></span><span class="control_link ng_control_link add ng_id" title="+NG ID">[<a href="javascript:void(0)">+</a>]</span><span class="control_link ref_id count_link">[1/1]</span></div>
-
             let createCountControlLinkTag = (map, key, cls, settingKey) => (map[key] && createControlLinkTag(cls + (map[key].length >= _.settings.app.get()[settingKey] ? " many" : ""), (map[key].indexOf(value.postId) + 1) + "/" + map[key].length.toString(), map[key].length <= 1) || "");
 
             // パフォーマンスのため、div.meta は htmlを直接書き換えて、DOMの更新を一度で行う.
@@ -1716,7 +1710,6 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
                 });
 
                 // back-links
-                // <span class="back-links"><a style="font-size:0.7em;margin-left: 5px;display:inline-block;" target="_blank" data-tooltip="36" href="//egg.5ch.net/test/read.cgi/game/1649341042/36" onclick="highlightReply(36, 'hover', event);">&gt;&gt;36</a></span>
                 meta += refPostId[value.postId]
                     .map(pid => `<span class="back-links gochutil"><a class="href_id" href="javascript:void(0);" style="font-size:0.7em;margin-left: 5px;display:inline-block;" data-href-id="${pid}">&gt;&gt;${pid}</a></span>`)
                     .reduce((p, c) => p + c, "");
@@ -1740,14 +1733,15 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
             return $post;
         }
 
+        // ポップアップ制御
         let popupSeq = 0;
-        let nextPopupId = () => {
-            return "gochutil-popup-" + (++popupSeq);
-        }
+        let nextPopupId = () => "gochutil-popup-" + (++popupSeq);
 
         let popupStack = [];
         let timeoutHandles = {};
+        let last = (array) => array?.[array.length - 1];
 
+        // ポップアップ要素作成.
         let createPopup = (popupId, popupClass, $inner) => {
             let $popup = $(`<div id="${popupId}" class="popup popup-container" style="border: 1px solid rgb(51, 51, 51); position: absolute; background-color: rgb(239, 239, 239); display: block; padding: 5px;"/>`);
             $popup.append($inner);
@@ -1762,8 +1756,20 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
             return $popup;
         }
 
-        let showPopupInner = async ($target, popupId, popupClass, innerContentAsync, offset) => {
+        // ポップアップの表示処理.
+        let showPopupInner = async ($target, popupId, popupClass, innerContentAsync, offset, popupTypeId = undefined) => {
+
             let $inner = await innerContentAsync($target)
+
+            let parentId = $target.closest("div.popup-container").attr("id");
+            // 親Popupと同タイプの場合にはそのメッセージを表示.
+            if (parentId && popupTypeId && $(`#${parentId}`).data("popup-type-id") == popupTypeId) {
+                $inner = $("<div>現在のポップアップと同じです</div>")
+            }
+            // 下位階層のPopup以外は閉じてしまう.
+            while ((!parentId || parentId != last(popupStack)) && popupStack.length > 0) {
+                removePopup(popupStack.pop());
+            }
 
             if ($inner && $inner.length > 0) {
 
@@ -1789,17 +1795,12 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
                     place();
                 });
 
-                // 下位階層のPopup以外は閉じてしまう.
-                let parentId = $target.closest("div.popup-container").attr("id");
-                while ((!parentId || parentId != last(popupStack)) && popupStack.length > 0) {
-                    removePopup(popupStack.pop());
-                }
-
                 $("body").append($popup);
                 popupStack.push(popupId);
 
                 $popup.data("place-func", place);
                 $popup.data("size-func", size);
+                $popup.data("popup-type-id", popupTypeId);
 
                 if ($popup.find("img").length <= 0) {
                     size();
@@ -1808,9 +1809,8 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
             }
         }
 
-        let last = (array) => array?.[array.length - 1];
-
-        let createOnShowPopupHandler = (popupClass, position, innerContentAsync, showDelay) => {
+        // ポップアップ表示ハンドラの生成. onmousehover等の引数となる関数を生成する.
+        let createOnShowPopupHandler = (popupClass, position, innerContentAsync, showDelay, popupTypeer = undefined) => {
             return async function () {
                 await initProcessPostsPromise;
                 let $a = $(this);
@@ -1836,7 +1836,7 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
                         timeoutHandles[popupId] = setTimeout(() => {
                             timeoutHandles[popupId] = undefined;
                             $a.removeClass("backgroundwidthprogress")
-                            showPopupInner($a, popupId, popupClass, innerContentAsync, offset);
+                            showPopupInner($a, popupId, popupClass, innerContentAsync, offset, popupTypeer?.($a));
                         }, 1000);
                     } else {
                         // 即時ポップアップ処理.
@@ -1845,32 +1845,37 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
                         }
                         timeoutHandles[popupId] = undefined;
                         $a.removeClass("backgroundwidthprogress");
-                        showPopupInner($a, popupId, popupClass, innerContentAsync, offset);
+                        showPopupInner($a, popupId, popupClass, innerContentAsync, offset, popupTypeer?.($a));
                     }
                 }
             };
         }
 
+        // ポップアップ表示リンクのマウスアウトハンドラ.
         let createOnPopupLinkMouseOutHandler = () => {
-            return function () {
+            return async function () {
+                await initProcessPostsPromise;
                 let $a = $(this);
-                $a.removeClass("mouse_hover");
-                let popupId = $a.attr("data-popup-id");
-                if (popupId) {
-                    if (timeoutHandles[popupId]) {
-                        clearTimeout(timeoutHandles[popupId]);
-                    }
-                    timeoutHandles[popupId] = undefined;
-                    $a.removeClass("backgroundwidthprogress");
+                setTimeout(function () {
+                    $a.removeClass("mouse_hover");
+                    let popupId = $a.attr("data-popup-id");
+                    if (popupId) {
+                        if (timeoutHandles[popupId]) {
+                            clearTimeout(timeoutHandles[popupId]);
+                        }
+                        timeoutHandles[popupId] = undefined;
+                        $a.removeClass("backgroundwidthprogress");
 
-                    let $popup = $(`div#${popupId}`);
-                    if ($popup.length > 0) {
-                        checkAndClosePopup(popupId);
+                        let $popup = $(`div#${popupId}`);
+                        if ($popup.length > 0) {
+                            checkAndClosePopup(popupId);
+                        }
                     }
-                }
+                }, 0);
             }
         };
 
+        // ポップアップを閉じれるかチェックして可能なら閉じる
         let checkAndClosePopup = (popupId) => setTimeout(() => checkAndClosePopupInner(popupId), 250);
 
         let checkAndClosePopupInner = (popupId) => {
@@ -1886,6 +1891,7 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
             }
         };
 
+        // ポップアップを削除.
         let removePopup = (popupId) => {
             if (popupId) {
                 $(`[data-popup-id="${popupId}"]`).removeAttr("data-popup-id");
@@ -1909,8 +1915,8 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
             , false));
         $("body").on("mouseout", "div.message a.image.directlink img", createOnPopupLinkMouseOutHandler());
 
-        // Korokoro, ip, id のレスリストポップアップ処理
-        let listPopup = (selector, popupClass, lister, delay = false) => {
+        // Korokoro, ip, id, 参照レス のレスリストポップアップ処理
+        let listPopup = (selector, popupClass, lister, popupTyper, delay) => {
             $("body").on("mouseover", selector, createOnShowPopupHandler(`${popupClass} list_popup`, $a => { return { top: $a.offset().top - 15, left: $a.offset().left + $a.width() } },
                 async $a => {
                     let val = getPostValue($a.closest("div.meta").parent());
@@ -1919,13 +1925,13 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
                     $container.find("div.post").after("<br>");
                     processPopupPost($container);
                     return $container;
-                }, delay));
+                }, delay, $a => popupTyper(getPostValue($a.closest("div.meta").parent()))));
             $("body").on("mouseout", selector, createOnPopupLinkMouseOutHandler());
         };
-        listPopup("span.ref_koro2 a", "koro2_popup", (v) => koro2Map[v.koro2]);
-        listPopup("span.ref_ip a", "ip_popup", (v) => ipMap[v.ip]);
-        listPopup("span.ref_id a", "id_popup", (v) => idMap[v.dateAndID.id]);
-        listPopup("span.number a.ref_posts", "ref_post_popup", (v) => refPostId[v.postId], true);
+        listPopup("span.ref_koro2 a", "koro2_popup", (v) => koro2Map[v.koro2], v => `list-koro2-${v.koro2}`, false);
+        listPopup("span.ref_ip a", "ip_popup", (v) => ipMap[v.ip], v => `list-ip-${v.ip}`, false);
+        listPopup("span.ref_id a", "id_popup", (v) => idMap[v.dateAndID.id], v => `list-id-${v.dateAndID.id}`, false);
+        listPopup("span.number a.ref_posts", "ref_post_popup", (v) => refPostId[v.postId], v => `list-ref-${v.postId}`, true);
 
         // あぼーんのポップアップ処理.
         let popupNgHandler = (popupClass, mouseover) => {
@@ -1988,6 +1994,7 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
             }, false));
         $("body").on("mouseout", "div.message a.reply_link, div.meta span.back-links a.href_id", createOnPopupLinkMouseOutHandler());
 
+        // 投稿データのポップアップ前処理. 不要なデータを削除する. (ポップアップ制御のクラスや属性等)
         let processPopupPost = ($obj) => {
             $obj.find("div.post[id]").addBack("div.post[id]").removeAttr("id");
             $obj.find("[data-popup-id]").addBack("[data-popup-id]").removeAttr("data-popup-id");
@@ -2043,6 +2050,7 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
             }
         }
 
+        // +NG イベント登録.
         $("body").on("click", "span.ng_control_link.ng_name.add a", controlNGEventListener(p => getPostValue(p).name, d => _.settings.ng.names.add(d)));
         $("body").on("click", "span.ng_control_link.ng_name.remove a", controlNGEventListener(p => getPostValue(p).name, d => _.settings.ng.names.remove(d)));
         $("body").on("click", "span.ng_control_link.ng_trip.add a", controlNGEventListener(p => getPostValue(p).trip, d => _.settings.ng.trips.add(d)));
@@ -2093,6 +2101,7 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
 
         let lastPostId = () => parseInt(getPostId($("div.thread div.post:last")));
 
+        // URLで最新N件表示やn-N表示の判定.
         let displayItems = (() => {
             var ret = {
                 last: undefined,
@@ -2131,6 +2140,7 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
             return ret;
         })();
 
+        // 新着投稿の取得可否.
         let canAppendNewPost = () => {
             let lastPid = lastPostId();
             return (lastPid && lastPid < 1002) && (displayItems.all || (displayItems.to && displayItems.to > lastPid) || (displayItems.last && displayItems.last > 0) || (!displayItems.to && displayItems.from));
@@ -2148,6 +2158,7 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
         }
         controlReloadControler();
 
+        // データのフェッチ.
         let fetchHtml = (url, option) => {
             return fetchInner(url, option)
                 .then(response => response.arrayBuffer())
@@ -2372,6 +2383,7 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
             }
         });
 
+        // ハイライト処理.
         let hilight = (selector, lister) => {
             $(document).on("click", selector, function () {
                 let $p = closestPost($(this));
@@ -2516,7 +2528,7 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
             // 5ch側スクリプトで余計なものが追加されたら削除する.(ほんとは追加されないようにすべき.)
             {
                 observe: 'div.thread div.post div.message a',
-                target: 'span.back-links:not(.gochutil)',
+                target: 'div[div="thumb5ch"]:not(.gochutil)',
                 observer: t => new MutationObserver(records => $(Array.from(records).flatMap(r => Array.from(r.addedNodes))).filter(t.target).remove()),
                 prepare: t => $(t.observe).children(t.target).remove()
             },
@@ -2542,6 +2554,7 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
             $(t.observe).each((i, e) => observer.observe(e, { childList: true }))
             return observer;
         });
+        // しばらくしたら5ch側の処理が終わるはずなので、オブザーバーをdisconnect
         setTimeout(() => initialObservers.forEach(o => o.disconnect()), 10000);
 
 
