@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         5chutil
 // @namespace    5chutil
-// @version      0.1.1.13
+// @version      0.1.1.14
 // @description  5ch のスレッドページに NG や外部コンテンツ埋め込み等の便利な機能を追加する
 // @author       5chutil dev
 // @match        *://*.5ch.net/test/read.cgi/*
@@ -15,7 +15,6 @@
 // @grant        GM.deleteValue
 // @run-at       document-start
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js
-
 // @license MIT
 // ==/UserScript==
 
@@ -91,20 +90,22 @@ span.mail {
     margin-right: 5px;
 }
 
-span.number a.ref_posts {
-    text-decoration: underline !important;
-}
-
-span.number a.ref_posts.many {
-    color: #bb2020;
-}
-
 div.message.abone span.abone_message a {
     font-weight: bold;
 }
 
 div.message span.ng_word_wrapper {
-    background-color: #ff6060;
+    background-color: #ffff88;
+    color: #cc0000;
+}
+
+.popup_mark {
+    background-color: #ffff88;
+    color: #cc0000;
+}
+
+div.message a.thumbnail_gochutil, div.message div.thumb5ch.gochutil {
+    display: inline-block;
 }
 
 div.img_popup div.img_container {
@@ -198,6 +199,23 @@ div.message span.embed:hover {
 
 div.popup {
     overflow: auto;
+}
+
+div.post div.childcontents {
+    margin: 5px 0px 5px;
+    display:flex;
+}
+
+div.childcontents div.indent {
+    width: 40px;
+    vertical-align: top;
+    display: inline-block;
+}
+
+div.childcontents div.childposts {
+    display: inline-block;
+    padding-left: 5px;
+    border-left: double 4px #aaa;
 }
 
 div.processing_container {
@@ -449,6 +467,7 @@ div.meta span.back-links.gochutil {
                     <li><input type="checkbox" id="autoscrollWhenNewPostLoad" class="app autoscrollWhenNewPostLoad" /><label for="autoscrollWhenNewPostLoad">新着取得時にスクロールする</label></li>
                     <li><input type="checkbox" id="autoEmbedContents" class="app autoEmbedContents" /><label for="autoEmbedContents">自動でimgur等の外部データの埋め込み処理を行う</label></li>
                     <li><input type="checkbox" id="blurImagePopup" class="app blurImagePopup" /><label for="blurImagePopup">画像のポップアップをぼかす(ぼかし画像クリックでぼかし解除)</label></li>
+                    <li><input type="checkbox" id="expandRefPosts" class="app expandRefPosts" /><label for="expandRefPosts">参照レスのポップアップで再参照レス以降を自動で展開する</label></li>
                     <li>IDが<input type="number" maxlength="2" class="app idManyCount" min="1" max="99" />個以上は赤くする&nbsp;<button type="button" class="app save idManyCount">保存</button></li>
                     <li>Korokoro(SLIP)が<input type="number" maxlength="2" class="app koro2ManyCount" min="1" max="99" />個以上は赤くする&nbsp;<button type="button" class="app save koro2ManyCount">保存</button></li>
                     <li>IP(SLIP)が<input type="number" maxlength="2" class="app ipManyCount" min="1" max="99" />個以上は赤くする&nbsp;<button type="button" class="app save ipManyCount">保存</button></li>
@@ -591,6 +610,7 @@ div.meta span.back-links.gochutil {
         initializeCheckboxSetting("autoscrollWhenNewPostLoad");
         initializeCheckboxSetting("autoEmbedContents");
         initializeCheckboxSetting("blurImagePopup");
+        initializeCheckboxSetting("expandRefPosts");
 
         let initializeNumberSetting = (propName) => {
             let $input = $(`input.app.${propName}`);
@@ -806,6 +826,84 @@ span.notes {
         }
     };
 
+    //// 5chutil_inject.js
+    const gochutil_injectjs = function () {/*
+(() => {
+    'use strict';
+    let finished = false;
+    let override = () => {
+        if (typeof jQuery === "undefined" || finished) return;
+        let jq = jQuery;
+        (() => {
+            // 不要なイベント.
+            const ignoreEvents = [
+                // ポップアップ処理.
+                { element: document, type: "mouseenter", selector: "a" },
+                { element: document, type: "mouseleave", selector: "a" },
+                { element: document, type: "mouseover", selector: "a" },
+                { element: document, type: "mouseout", selector: "a" },
+                { element: document, type: "click", selector: ".uid" }
+            ];
+
+            const orig = jq.fn.on;
+            // 無視するためHookする.
+            jq.fn.on = function (...args) {
+                if (ignoreEvents.some(ignore => ignore.element == this?.[0] && ignore.type == args?.[0] && ignore.selector == args?.[1])) {
+                    // 無視.
+                    return this;
+                } else {
+                    return orig.apply(this, args);
+                }
+            };
+
+            // poppup, highlight 処理を実行しないようにイベントを削除する.
+            ignoreEvents.forEach(i => $._data(i.element, "events")?.[i.type]
+                ?.filter(e => e.selector == i.selector)
+                .forEach(e => $(i.element).off(e.type, e.selector)));
+        })();
+
+        (() => {
+            // 自力やるか機能を止めるため、ready() で 5ch側で実行させないスクリプト.
+            let ignoreScripts = [
+                // uid クリック時のハイライト処理イベント登録.
+                scr => scr.match(/\.on\(\s*['"`]click['"`],\s*['"`]\.uid['"`].*highlightpost/s),
+                // ポップアップ処理.
+                scr => scr.match(/\.on\(.*mouseenter.+mouseleave/s),
+                // back-link 作成処理.
+                scr => scr.match(/<span[^>]+class=['"`]back-links['"`]/s),
+                // サムネイルの表示処理.
+                scr => scr.match(/thumb1\.5ch\.net.+thumbnails.+thumb5ch/s)
+            ];
+            const orig = jq.fn.ready;
+            jq.fn.ready = function (...args) {
+                if (ignoreScripts.some(ig => ig(args?.[0]?.toString() ?? ""))) {
+                    // 無視.
+                    return this;
+                } else {
+                    return orig.apply(this, args);
+                }
+            }
+        })();
+        finished = true;
+    };
+
+    // このタイミングではjQueryオブジェクトが生成されてない場合もあるので、DOMContentLoaded でも再トライ.
+    document.addEventListener('DOMContentLoaded', (event) => {
+        override();
+    });
+    override();
+
+})();
+
+        */}.toString().split(/\/\*|\*\//)[1];
+
+    _.injectJs = () => {
+        let scr = document.createElement('script');
+        scr.setAttribute('type', 'text/javascript');
+        scr.innerHTML = gochutil_injectjs;
+        document.documentElement?.appendChild(scr);
+    }
+
     $(function () {
         _.addStyle($("html"), gochutilcss);
 
@@ -815,7 +913,11 @@ span.notes {
         $optionshtml.find("head script").remove();
         $optionshtml.find("head link").remove();
 
-        $optionshtml.find("head").append(`<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" type="text/javascript"></script>`);
+        let scr = doc.createElement("script");
+        scr.setAttribute('type', 'text/javascript');
+        scr.setAttribute('src', "https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js");
+        doc.getElementsByTagName("head")[0]?.appendChild(scr);
+
         unsafeWindow.GOCHUTIL = _;
         $optionshtml.find("head").append(`
 <script type="text/javascript">
@@ -858,26 +960,6 @@ span.notes {
         let $option = $optionView.find("div.gochutil_option");
         $option.css("top", top + $settingLink.height() + 5);
         $option.css("right", right);
-
-        //// 5chutil_inject.js
-        const gochutil_injectjs = function () {/*
-$(() => {
-    let intervals = {};
-    let counts = {};
-    let removeEvent = ($obj, target) => $._data($obj.get(0), "events")?.[target.type]?.filter(e => e.selector == target.selector).reduce((p, c) => p.add($obj.off(c.type, c.selector), $obj.off(c.origType, c.selector)), $())?.length;
-    // poppup, highlight 処理を実行しないようにイベントを削除する.
-    [{ type: "mouseover", selector: "a" }, { type: "mouseout", selector: "a" }, { type: "click", selector: ".uid" }]
-        .filter(t => !removeEvent($(document), t))
-        .forEach(t => intervals[t] = setInterval(() => {
-            counts[t] = (counts[t] ?? 0) + 1;
-            if (removeEvent($(document), t) || counts[t] > 10) {
-                clearInterval(intervals[t]);
-            }
-        }, 1000));
-});
-
-*/}.toString().split(/\/\*|\*\//)[1];
-        _.injectJs = () => $('body').append(`<script type="text/javascript">${gochutil_injectjs}</script>`)
     });
 }(this));
 
@@ -1053,6 +1135,7 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
         autoscrollWhenNewPostLoad: false,
         autoEmbedContents: false,
         blurImagePopup: false,
+        expandRefPosts: true,
         idManyCount: 5,
         koro2ManyCount: 5,
         ipManyCount: 5,
@@ -1139,7 +1222,7 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
 
         let postValueCache = {};
 
-        _.injectJs();
+        // _.injectJs();
 
         let getPostId = ($post) => {
             return $post.attr("data-id");
@@ -1472,9 +1555,9 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
                     fetchDataUrl(url)
                         .then(dataUrl => {
                             $a.find('div[div="thumb5ch"]').remove();
-                            let $clone = $a.clone().addClass("thumbnail_gochutil");
-                            $clone.html("").append($("<div></div>").addClass("thumb5ch gochutil").attr("div", "thumb5ch").append($("<img></img>").addClass("thumb_i").attr("src", dataUrl)));
-                            $a.after($clone);
+                            let $thumbnail = $("<a>").addClass("thumbnail_gochutil").attr("href", "javascript:void(0);").attr("data-href", $a.attr("href"));
+                            $thumbnail.html("").append($("<div></div>").addClass("thumb5ch gochutil").append($("<img></img>").addClass("thumb_i").attr("src", dataUrl)));
+                            $a.after($thumbnail).after("<br>");
                         })
                         .then(() => replaceAllPopup())
                         .catch(err => { if (err.httpStatus != 202) console.error(err); });
@@ -1652,8 +1735,6 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
             $post.find(".gochutil_wrapper").contents().unwrap();
             $post.find(".gochutil_wrapper").remove();
 
-            $post.find(".number a.ref_posts").contents().unwrap();
-            $post.find(".number a.ref_posts").remove();
             $post.find(".back-links.gochutil").remove();
 
             if (matchNG.word) {
@@ -1701,18 +1782,23 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
 
             if (refPostId[value.postId] && refPostId[value.postId].length > 0) {
 
+                /*
                 meta = meta.replace(/(<span class="number">)(.+?)(<\/span>)/, function (match, c1, c2, c3) {
                     let cls = "ref_posts";
                     if (refPostId[value.postId].length > _.settings.app.get().refPostManyCount) {
-                        cls = +" many";
+                        cls = cls + " many";
                     }
                     return c1 + `<a class="${cls}" href="javascript:void(0);">${c2}</a>` + c3;
                 });
+                */
 
                 // back-links
+                /*
                 meta += refPostId[value.postId]
                     .map(pid => `<span class="back-links gochutil"><a class="href_id" href="javascript:void(0);" style="font-size:0.7em;margin-left: 5px;display:inline-block;" data-href-id="${pid}">&gt;&gt;${pid}</a></span>`)
                     .reduce((p, c) => p + c, "");
+                */
+                meta += createControlLinkTag("ref_posts count_link" + (refPostId[value.postId].length >= _.settings.app.get().refPostManyCount ? " many" : ""), `REF(${refPostId[value.postId].length})`);
             }
             $meta.html(meta);
 
@@ -1780,10 +1866,12 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
                 let maxHeight = $(window).height() - topMargin - 10;
                 let maxWidth = $(window).width() - leftMargin - 10;
 
-                let place = () => $popup.offset({
-                    top: Math.min(offset().top, Math.max($(window).scrollTop() + topMargin, $(window).scrollTop() + topMargin + maxHeight - $popup.outerHeight())),
-                    left: Math.min(offset().left, Math.max($(window).scrollLeft() + leftMargin, $(window).scrollLeft() + leftMargin + maxWidth - $popup.outerWidth()))
-                });
+                let place = () => {
+                    $popup.offset({
+                        top: Math.min(offset().top, Math.max($(window).scrollTop() + topMargin, $(window).scrollTop() + topMargin + maxHeight - $popup.outerHeight())),
+                        left: Math.min(offset().left, Math.max($(window).scrollLeft() + leftMargin, $(window).scrollLeft() + leftMargin + maxWidth - $popup.outerWidth()))
+                    })
+                };
                 let size = () => {
                     $popup.css("width", "").css("height", "");
                     $popup.outerHeight(Math.min($popup.outerHeight(), maxHeight));
@@ -1900,7 +1988,7 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
         };
 
         // 画像のポップアップ処理
-        $("body").on("mouseover", "div.message a.image.directlink img", createOnShowPopupHandler("img_popup",
+        $("body").on("mouseover", "div.message a.thumbnail_gochutil img", createOnShowPopupHandler("img_popup",
             $img => {
                 let $a = $img.closest("a");
                 if ($a.find("img.thumb_i").length > 0) {
@@ -1908,30 +1996,88 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
                 }
             },
             async $img => $('<div class="img_container loader" />')
-                .append($('<img class="popup_img" referrerpolicy="no-referrer" />').on("load", function () { $(this).closest("div.img_container").removeClass("loader") }).attr("src", $img.closest("a").attr("href")))
+                .append($('<img class="popup_img" referrerpolicy="no-referrer" />').on("load", function () { $(this).closest("div.img_container").removeClass("loader") }).attr("src", $img.closest("a").attr("data-href")))
                 .addClass(_.settings.app.get().blurImagePopup ? "blur" : "")
                 .on("click", function () { $(this).removeClass("blur") })
                 .append($('<div class="remove_blur">クリックでぼかし解除</div>').on("click", function () { $(this).closest("div.img_container").removeClass("blur"); }))
             , false));
-        $("body").on("mouseout", "div.message a.image.directlink img", createOnPopupLinkMouseOutHandler());
+        $("body").on("mouseout", "div.message a.thumbnail_gochutil img", createOnPopupLinkMouseOutHandler());
 
         // Korokoro, ip, id, 参照レス のレスリストポップアップ処理
-        let listPopup = (selector, popupClass, lister, popupTyper, delay) => {
+        let listPopup = (selector, popupClass, lister, popupTyper, processContainer) => {
             $("body").on("mouseover", selector, createOnShowPopupHandler(`${popupClass} list_popup`, $a => { return { top: $a.offset().top - 15, left: $a.offset().left + $a.width() } },
                 async $a => {
                     let val = getPostValue($a.closest("div.meta").parent());
                     let $container = $('<div class="list_container" />');
                     lister(val).forEach(pid => $container.append($(`div.post#${pid}`).clone()));
                     $container.find("div.post").after("<br>");
+                    processContainer($container, val);
                     processPopupPost($container);
                     return $container;
-                }, delay, $a => popupTyper(getPostValue($a.closest("div.meta").parent()))));
+                }, false, $a => popupTyper(getPostValue($a.closest("div.meta").parent()))));
             $("body").on("mouseout", selector, createOnPopupLinkMouseOutHandler());
         };
-        listPopup("span.ref_koro2 a", "koro2_popup", (v) => koro2Map[v.koro2], v => `list-koro2-${v.koro2}`, false);
-        listPopup("span.ref_ip a", "ip_popup", (v) => ipMap[v.ip], v => `list-ip-${v.ip}`, false);
-        listPopup("span.ref_id a", "id_popup", (v) => idMap[v.dateAndID.id], v => `list-id-${v.dateAndID.id}`, false);
-        listPopup("span.number a.ref_posts", "ref_post_popup", (v) => refPostId[v.postId], v => `list-ref-${v.postId}`, true);
+        let appendChildrenPosts = ($p, lister, ancestors) => {
+            let v = getPostValue($p);
+            let children = lister(v)?.filter(pid => !ancestors.has(pid));
+            if (children && !ancestors.has(v.postId)) {
+                ancestors.add(v.postId);
+                let $container = $("<div>").addClass("childcontents");
+                let $childPosts = $("<div>").addClass("childposts");
+                $container.append($("<div>").addClass("indent"));
+                $container.append($childPosts);
+                children.forEach(pid => {
+                    let $child = $(`div.post#${pid}`).clone();
+                    appendChildrenPosts($child, lister, ancestors);
+                    $childPosts.append($child).append("<br>");
+                });
+                $p.append($container);
+                ancestors.delete(v.postId);
+            }
+        };
+
+        listPopup("span.ref_koro2 a", "koro2_popup", (v) => koro2Map[v.koro2], v => `list-koro2-${v.koro2}`, $c => $c.find("span.koro2.gochutil_wrapper").addClass("popup_mark"));
+        listPopup("span.ref_ip a", "ip_popup", (v) => ipMap[v.ip], v => `list-ip-${v.ip}`, $c => $c.find("span.ip.gochutil_wrapper").addClass("popup_mark"));
+        listPopup("span.ref_id a", "id_popup", (v) => idMap[v.dateAndID.id], v => `list-id-${v.dateAndID.id}`, $c => $c.find("span.uid_only.gochutil_wrapper").addClass("popup_mark"));
+        listPopup("span.ref_posts a", "ref_post_popup", (v) => refPostId[v.postId], v => `list-ref-${v.postId}`, ($c, v) => {
+            $c.find(`a.reply_link.href_id[data-href-id="${v.postId}"]`).addClass("popup_mark");
+            $c.find(".post").each((i, e) => {
+                let $p = $(e);
+                let ancestors = new Set();
+                appendChildrenPosts($p, v => refPostId[v.postId], ancestors);
+                // 参照リンクのハイライト.
+                $p.find(`a.reply_link.href_id`).each((i, e) => {
+                    $l = $(e);
+                    let refPid = getPostId($l.closest("div.post").parent().closest("div.post"));
+                    if ($l.attr("data-href-id") == refPid) {
+                        $l.addClass("popup_mark");
+                    }
+                });
+            });
+
+            $c.find("div.indent").closest(".post").children(".childcontents").find(".indent").append(createControlLinkTag("ref_expand", "閉", false, "Expand / Collapse Ref Posts"))
+            let $expandLink = $c.find("span.ref_expand a");
+            $expandLink.addClass("expand");
+
+            if (!_.settings.app.get().expandRefPosts) {
+                $expandLink.text("開");
+                $expandLink.removeClass("expand");
+                $c.find(".childposts").css("display", "none");
+            }
+        });
+
+        $("body").on("click", "span.ref_expand a", function () {
+            if ($(this).hasClass("expand")) {
+                $(this).closest("div.post").children(".childcontents").children(".childposts").css("display", "none");
+                $(this).text("開");
+                $(this).removeClass("expand");
+            } else {
+                $(this).closest("div.post").children(".childcontents").children(".childposts").css("display", "block");
+                $(this).text("閉");
+                $(this).addClass("expand");
+            }
+            replaceAllPopup();
+        })
 
         // あぼーんのポップアップ処理.
         let popupNgHandler = (popupClass, mouseover) => {
@@ -2015,8 +2161,12 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
         let replaceAllPopup = () => {
             popupStack.forEach(p => {
                 let $popup = $(`#${p}`);
-                $popup.data("place-func")?.();
+                let scrollTop = $popup.scrollTop();
+                let scrollLeft = $popup.scrollLeft();
                 $popup.data("size-func")?.();
+                $popup.data("place-func")?.();
+                $popup.scrollTop(scrollTop);
+                $popup.scrollLeft(scrollLeft);
             });
         }
 
@@ -2038,7 +2188,6 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
 
         let controlNGWordEventListener = function (handler) {
             return async function () {
-                let $a = $(this);
                 let sel = window.getSelection();
                 let word = sel?.isCollapsed ? undefined : sel?.getRangeAt(0).toString();
                 if (sel && !sel.isCollapsed && sel.anchorNode === sel.focusNode && $(sel.anchorNode).closest("div.message").length > 0 && word && word.length > 1 && word.length < 10) {
@@ -2066,7 +2215,6 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
         $("body").on("click", "span.ng_control_link.ng_word.remove a", controlNGWordEventListener(d => _.settings.ng.words.remove(d)));
 
         $("body").on("click", "span.ng_control_link.remove.ng_word_inline a", async function () {
-            let $a = $(this);
             await _.settings.ng.words.remove($(this).closest("span.ng_control_link.remove.ng_word_inline").data("word"));
             document.getSelection().removeAllRanges();
             setTimeout(() => {
@@ -2525,7 +2673,7 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
         newPostObserver.observe($("div.thread").get(0), { childList: true });
 
         let initialObservers = [
-            // 5ch側スクリプトで余計なものが追加されたら削除する.(ほんとは追加されないようにすべき.)
+            // 5ch側スクリプトで余計なものが追加されたら削除する.(5chutil_inject.jsで登録しないようにしているが、念のため.)
             {
                 observe: 'div.thread div.post div.message a',
                 target: 'div[div="thumb5ch"]:not(.gochutil)',
@@ -2567,6 +2715,7 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
 
     await _.init();
     if (!_.settings.app.get().stop) {
+        _.injectJs();
         $(function () {
             if ($(".thread .post").length != 0) {
                 main();

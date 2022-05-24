@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         5chutil
 // @namespace    5chutil
-// @version      0.1.1.13
+// @version      0.1.1.14
 // @description  5ch のスレッドページに NG や外部コンテンツ埋め込み等の便利な機能を追加する
 // @author       5chutil dev
 // @match        *://*.5ch.net/test/read.cgi/*
@@ -15,7 +15,6 @@
 // @grant        GM.deleteValue
 // @run-at       document-start
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js
-
 // @license MIT
 // ==/UserScript==
 
@@ -89,6 +88,18 @@ var GOCHUTIL = GOCHUTIL || {};
         }
     };
 
+    //// 5chutil_inject.js
+    const gochutil_injectjs = function () {/*
+//$[[FILE:js/5chutil_inject.js]]
+        */}.toString().split(/\/\*|\*\//)[1];
+
+    _.injectJs = () => {
+        let scr = document.createElement('script');
+        scr.setAttribute('type', 'text/javascript');
+        scr.innerHTML = gochutil_injectjs;
+        document.documentElement?.appendChild(scr);
+    }
+
     $(function () {
         _.addStyle($("html"), gochutilcss);
 
@@ -98,7 +109,11 @@ var GOCHUTIL = GOCHUTIL || {};
         $optionshtml.find("head script").remove();
         $optionshtml.find("head link").remove();
 
-        $optionshtml.find("head").append(`<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" type="text/javascript"></script>`);
+        let scr = doc.createElement("script");
+        scr.setAttribute('type', 'text/javascript');
+        scr.setAttribute('src', "https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js");
+        doc.getElementsByTagName("head")[0]?.appendChild(scr);
+
         unsafeWindow.GOCHUTIL = _;
         $optionshtml.find("head").append(`
 <script type="text/javascript">
@@ -141,12 +156,6 @@ var GOCHUTIL = GOCHUTIL || {};
         let $option = $optionView.find("div.gochutil_option");
         $option.css("top", top + $settingLink.height() + 5);
         $option.css("right", right);
-
-        //// 5chutil_inject.js
-        const gochutil_injectjs = function () {/*
-//$[[FILE:js/5chutil_inject.js]]
-*/}.toString().split(/\/\*|\*\//)[1];
-        _.injectJs = () => $('body').append(`<script type="text/javascript">${gochutil_injectjs}</script>`)
     });
 }(this));
 

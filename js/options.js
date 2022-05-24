@@ -18,6 +18,7 @@
         initializeCheckboxSetting("autoscrollWhenNewPostLoad");
         initializeCheckboxSetting("autoEmbedContents");
         initializeCheckboxSetting("blurImagePopup");
+        initializeCheckboxSetting("expandRefPosts");
 
         let initializeNumberSetting = (propName) => {
             let $input = $(`input.app.${propName}`);

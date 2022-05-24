@@ -27,11 +27,10 @@ var GOCHUTIL = GOCHUTIL || {};
     }
 
     _.injectJs = () => {
-        let body = document.getElementsByTagName('body')[0];
         let scr = document.createElement('script');
         scr.setAttribute('type', 'text/javascript');
         scr.setAttribute('src', b.runtime.getURL('js/5chutil_inject.js'));
-        body?.appendChild(scr);
+        document.documentElement?.appendChild(scr);
     };
     // ==================
 

@@ -18,7 +18,7 @@
 
         let postValueCache = {};
 
-        _.injectJs();
+        // _.injectJs();
 
         let getPostId = ($post) => {
             return $post.attr("data-id");
@@ -351,9 +351,9 @@
                     fetchDataUrl(url)
                         .then(dataUrl => {
                             $a.find('div[div="thumb5ch"]').remove();
-                            let $clone = $a.clone().addClass("thumbnail_gochutil");
-                            $clone.html("").append($("<div></div>").addClass("thumb5ch gochutil").attr("div", "thumb5ch").append($("<img></img>").addClass("thumb_i").attr("src", dataUrl)));
-                            $a.after($clone);
+                            let $thumbnail = $("<a>").addClass("thumbnail_gochutil").attr("href", "javascript:void(0);").attr("data-href", $a.attr("href"));
+                            $thumbnail.html("").append($("<div></div>").addClass("thumb5ch gochutil").append($("<img></img>").addClass("thumb_i").attr("src", dataUrl)));
+                            $a.after($thumbnail).after("<br>");
                         })
                         .then(() => replaceAllPopup())
                         .catch(err => { if (err.httpStatus != 202) console.error(err); });
@@ -531,8 +531,6 @@
             $post.find(".gochutil_wrapper").contents().unwrap();
             $post.find(".gochutil_wrapper").remove();
 
-            $post.find(".number a.ref_posts").contents().unwrap();
-            $post.find(".number a.ref_posts").remove();
             $post.find(".back-links.gochutil").remove();
 
             if (matchNG.word) {
@@ -580,18 +578,23 @@
 
             if (refPostId[value.postId] && refPostId[value.postId].length > 0) {
 
+                /*
                 meta = meta.replace(/(<span class="number">)(.+?)(<\/span>)/, function (match, c1, c2, c3) {
                     let cls = "ref_posts";
                     if (refPostId[value.postId].length > _.settings.app.get().refPostManyCount) {
-                        cls = +" many";
+                        cls = cls + " many";
                     }
                     return c1 + `<a class="${cls}" href="javascript:void(0);">${c2}</a>` + c3;
                 });
+                */
 
                 // back-links
+                /*
                 meta += refPostId[value.postId]
                     .map(pid => `<span class="back-links gochutil"><a class="href_id" href="javascript:void(0);" style="font-size:0.7em;margin-left: 5px;display:inline-block;" data-href-id="${pid}">&gt;&gt;${pid}</a></span>`)
                     .reduce((p, c) => p + c, "");
+                */
+                meta += createControlLinkTag("ref_posts count_link" + (refPostId[value.postId].length >= _.settings.app.get().refPostManyCount ? " many" : ""), `REF(${refPostId[value.postId].length})`);
             }
             $meta.html(meta);
 
@@ -659,10 +662,12 @@
                 let maxHeight = $(window).height() - topMargin - 10;
                 let maxWidth = $(window).width() - leftMargin - 10;
 
-                let place = () => $popup.offset({
-                    top: Math.min(offset().top, Math.max($(window).scrollTop() + topMargin, $(window).scrollTop() + topMargin + maxHeight - $popup.outerHeight())),
-                    left: Math.min(offset().left, Math.max($(window).scrollLeft() + leftMargin, $(window).scrollLeft() + leftMargin + maxWidth - $popup.outerWidth()))
-                });
+                let place = () => {
+                    $popup.offset({
+                        top: Math.min(offset().top, Math.max($(window).scrollTop() + topMargin, $(window).scrollTop() + topMargin + maxHeight - $popup.outerHeight())),
+                        left: Math.min(offset().left, Math.max($(window).scrollLeft() + leftMargin, $(window).scrollLeft() + leftMargin + maxWidth - $popup.outerWidth()))
+                    })
+                };
                 let size = () => {
                     $popup.css("width", "").css("height", "");
                     $popup.outerHeight(Math.min($popup.outerHeight(), maxHeight));
@@ -779,7 +784,7 @@
         };
 
         // 画像のポップアップ処理
-        $("body").on("mouseover", "div.message a.image.directlink img", createOnShowPopupHandler("img_popup",
+        $("body").on("mouseover", "div.message a.thumbnail_gochutil img", createOnShowPopupHandler("img_popup",
             $img => {
                 let $a = $img.closest("a");
                 if ($a.find("img.thumb_i").length > 0) {
@@ -787,30 +792,88 @@
                 }
             },
             async $img => $('<div class="img_container loader" />')
-                .append($('<img class="popup_img" referrerpolicy="no-referrer" />').on("load", function () { $(this).closest("div.img_container").removeClass("loader") }).attr("src", $img.closest("a").attr("href")))
+                .append($('<img class="popup_img" referrerpolicy="no-referrer" />').on("load", function () { $(this).closest("div.img_container").removeClass("loader") }).attr("src", $img.closest("a").attr("data-href")))
                 .addClass(_.settings.app.get().blurImagePopup ? "blur" : "")
                 .on("click", function () { $(this).removeClass("blur") })
                 .append($('<div class="remove_blur">クリックでぼかし解除</div>').on("click", function () { $(this).closest("div.img_container").removeClass("blur"); }))
             , false));
-        $("body").on("mouseout", "div.message a.image.directlink img", createOnPopupLinkMouseOutHandler());
+        $("body").on("mouseout", "div.message a.thumbnail_gochutil img", createOnPopupLinkMouseOutHandler());
 
         // Korokoro, ip, id, 参照レス のレスリストポップアップ処理
-        let listPopup = (selector, popupClass, lister, popupTyper, delay) => {
+        let listPopup = (selector, popupClass, lister, popupTyper, processContainer) => {
             $("body").on("mouseover", selector, createOnShowPopupHandler(`${popupClass} list_popup`, $a => { return { top: $a.offset().top - 15, left: $a.offset().left + $a.width() } },
                 async $a => {
                     let val = getPostValue($a.closest("div.meta").parent());
                     let $container = $('<div class="list_container" />');
                     lister(val).forEach(pid => $container.append($(`div.post#${pid}`).clone()));
                     $container.find("div.post").after("<br>");
+                    processContainer($container, val);
                     processPopupPost($container);
                     return $container;
-                }, delay, $a => popupTyper(getPostValue($a.closest("div.meta").parent()))));
+                }, false, $a => popupTyper(getPostValue($a.closest("div.meta").parent()))));
             $("body").on("mouseout", selector, createOnPopupLinkMouseOutHandler());
         };
-        listPopup("span.ref_koro2 a", "koro2_popup", (v) => koro2Map[v.koro2], v => `list-koro2-${v.koro2}`, false);
-        listPopup("span.ref_ip a", "ip_popup", (v) => ipMap[v.ip], v => `list-ip-${v.ip}`, false);
-        listPopup("span.ref_id a", "id_popup", (v) => idMap[v.dateAndID.id], v => `list-id-${v.dateAndID.id}`, false);
-        listPopup("span.number a.ref_posts", "ref_post_popup", (v) => refPostId[v.postId], v => `list-ref-${v.postId}`, true);
+        let appendChildrenPosts = ($p, lister, ancestors) => {
+            let v = getPostValue($p);
+            let children = lister(v)?.filter(pid => !ancestors.has(pid));
+            if (children && !ancestors.has(v.postId)) {
+                ancestors.add(v.postId);
+                let $container = $("<div>").addClass("childcontents");
+                let $childPosts = $("<div>").addClass("childposts");
+                $container.append($("<div>").addClass("indent"));
+                $container.append($childPosts);
+                children.forEach(pid => {
+                    let $child = $(`div.post#${pid}`).clone();
+                    appendChildrenPosts($child, lister, ancestors);
+                    $childPosts.append($child).append("<br>");
+                });
+                $p.append($container);
+                ancestors.delete(v.postId);
+            }
+        };
+
+        listPopup("span.ref_koro2 a", "koro2_popup", (v) => koro2Map[v.koro2], v => `list-koro2-${v.koro2}`, $c => $c.find("span.koro2.gochutil_wrapper").addClass("popup_mark"));
+        listPopup("span.ref_ip a", "ip_popup", (v) => ipMap[v.ip], v => `list-ip-${v.ip}`, $c => $c.find("span.ip.gochutil_wrapper").addClass("popup_mark"));
+        listPopup("span.ref_id a", "id_popup", (v) => idMap[v.dateAndID.id], v => `list-id-${v.dateAndID.id}`, $c => $c.find("span.uid_only.gochutil_wrapper").addClass("popup_mark"));
+        listPopup("span.ref_posts a", "ref_post_popup", (v) => refPostId[v.postId], v => `list-ref-${v.postId}`, ($c, v) => {
+            $c.find(`a.reply_link.href_id[data-href-id="${v.postId}"]`).addClass("popup_mark");
+            $c.find(".post").each((i, e) => {
+                let $p = $(e);
+                let ancestors = new Set();
+                appendChildrenPosts($p, v => refPostId[v.postId], ancestors);
+                // 参照リンクのハイライト.
+                $p.find(`a.reply_link.href_id`).each((i, e) => {
+                    $l = $(e);
+                    let refPid = getPostId($l.closest("div.post").parent().closest("div.post"));
+                    if ($l.attr("data-href-id") == refPid) {
+                        $l.addClass("popup_mark");
+                    }
+                });
+            });
+
+            $c.find("div.indent").closest(".post").children(".childcontents").find(".indent").append(createControlLinkTag("ref_expand", "閉", false, "Expand / Collapse Ref Posts"))
+            let $expandLink = $c.find("span.ref_expand a");
+            $expandLink.addClass("expand");
+
+            if (!_.settings.app.get().expandRefPosts) {
+                $expandLink.text("開");
+                $expandLink.removeClass("expand");
+                $c.find(".childposts").css("display", "none");
+            }
+        });
+
+        $("body").on("click", "span.ref_expand a", function () {
+            if ($(this).hasClass("expand")) {
+                $(this).closest("div.post").children(".childcontents").children(".childposts").css("display", "none");
+                $(this).text("開");
+                $(this).removeClass("expand");
+            } else {
+                $(this).closest("div.post").children(".childcontents").children(".childposts").css("display", "block");
+                $(this).text("閉");
+                $(this).addClass("expand");
+            }
+            replaceAllPopup();
+        })
 
         // あぼーんのポップアップ処理.
         let popupNgHandler = (popupClass, mouseover) => {
@@ -894,8 +957,12 @@
         let replaceAllPopup = () => {
             popupStack.forEach(p => {
                 let $popup = $(`#${p}`);
-                $popup.data("place-func")?.();
+                let scrollTop = $popup.scrollTop();
+                let scrollLeft = $popup.scrollLeft();
                 $popup.data("size-func")?.();
+                $popup.data("place-func")?.();
+                $popup.scrollTop(scrollTop);
+                $popup.scrollLeft(scrollLeft);
             });
         }
 
@@ -917,7 +984,6 @@
 
         let controlNGWordEventListener = function (handler) {
             return async function () {
-                let $a = $(this);
                 let sel = window.getSelection();
                 let word = sel?.isCollapsed ? undefined : sel?.getRangeAt(0).toString();
                 if (sel && !sel.isCollapsed && sel.anchorNode === sel.focusNode && $(sel.anchorNode).closest("div.message").length > 0 && word && word.length > 1 && word.length < 10) {
@@ -945,7 +1011,6 @@
         $("body").on("click", "span.ng_control_link.ng_word.remove a", controlNGWordEventListener(d => _.settings.ng.words.remove(d)));
 
         $("body").on("click", "span.ng_control_link.remove.ng_word_inline a", async function () {
-            let $a = $(this);
             await _.settings.ng.words.remove($(this).closest("span.ng_control_link.remove.ng_word_inline").data("word"));
             document.getSelection().removeAllRanges();
             setTimeout(() => {
@@ -1404,7 +1469,7 @@
         newPostObserver.observe($("div.thread").get(0), { childList: true });
 
         let initialObservers = [
-            // 5ch側スクリプトで余計なものが追加されたら削除する.(ほんとは追加されないようにすべき.)
+            // 5ch側スクリプトで余計なものが追加されたら削除する.(5chutil_inject.jsで登録しないようにしているが、念のため.)
             {
                 observe: 'div.thread div.post div.message a',
                 target: 'div[div="thumb5ch"]:not(.gochutil)',
@@ -1446,6 +1511,7 @@
 
     await _.init();
     if (!_.settings.app.get().stop) {
+        _.injectJs();
         $(function () {
             if ($(".thread .post").length != 0) {
                 main();

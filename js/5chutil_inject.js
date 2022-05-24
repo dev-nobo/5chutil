@@ -1,14 +1,66 @@
-$(() => {
-    let intervals = {};
-    let counts = {};
-    let removeEvent = ($obj, target) => $._data($obj.get(0), "events")?.[target.type]?.filter(e => e.selector == target.selector).reduce((p, c) => p.add($obj.off(c.type, c.selector), $obj.off(c.origType, c.selector)), $())?.length;
-    // poppup, highlight 処理を実行しないようにイベントを削除する.
-    [{ type: "mouseover", selector: "a" }, { type: "mouseout", selector: "a" }, { type: "click", selector: ".uid" }]
-        .filter(t => !removeEvent($(document), t))
-        .forEach(t => intervals[t] = setInterval(() => {
-            counts[t] = (counts[t] ?? 0) + 1;
-            if (removeEvent($(document), t) || counts[t] > 10) {
-                clearInterval(intervals[t]);
+(() => {
+    'use strict';
+    let finished = false;
+    let override = () => {
+        if (typeof jQuery === "undefined" || finished) return;
+        let jq = jQuery;
+        (() => {
+            // 不要なイベント.
+            const ignoreEvents = [
+                // ポップアップ処理.
+                { element: document, type: "mouseenter", selector: "a" },
+                { element: document, type: "mouseleave", selector: "a" },
+                { element: document, type: "mouseover", selector: "a" },
+                { element: document, type: "mouseout", selector: "a" },
+                { element: document, type: "click", selector: ".uid" }
+            ];
+
+            const orig = jq.fn.on;
+            // 無視するためHookする.
+            jq.fn.on = function (...args) {
+                if (ignoreEvents.some(ignore => ignore.element == this?.[0] && ignore.type == args?.[0] && ignore.selector == args?.[1])) {
+                    // 無視.
+                    return this;
+                } else {
+                    return orig.apply(this, args);
+                }
+            };
+
+            // poppup, highlight 処理を実行しないようにイベントを削除する.
+            ignoreEvents.forEach(i => $._data(i.element, "events")?.[i.type]
+                ?.filter(e => e.selector == i.selector)
+                .forEach(e => $(i.element).off(e.type, e.selector)));
+        })();
+
+        (() => {
+            // 自力やるか機能を止めるため、ready() で 5ch側で実行させないスクリプト.
+            let ignoreScripts = [
+                // uid クリック時のハイライト処理イベント登録.
+                scr => scr.match(/\.on\(\s*['"`]click['"`],\s*['"`]\.uid['"`].*highlightpost/s),
+                // ポップアップ処理.
+                scr => scr.match(/\.on\(.*mouseenter.+mouseleave/s),
+                // back-link 作成処理.
+                scr => scr.match(/<span[^>]+class=['"`]back-links['"`]/s),
+                // サムネイルの表示処理.
+                scr => scr.match(/thumb1\.5ch\.net.+thumbnails.+thumb5ch/s)
+            ];
+            const orig = jq.fn.ready;
+            jq.fn.ready = function (...args) {
+                if (ignoreScripts.some(ig => ig(args?.[0]?.toString() ?? ""))) {
+                    // 無視.
+                    return this;
+                } else {
+                    return orig.apply(this, args);
+                }
             }
-        }, 1000));
-});
+        })();
+        finished = true;
+    };
+
+    // このタイミングではjQueryオブジェクトが生成されてない場合もあるので、DOMContentLoaded でも再トライ.
+    document.addEventListener('DOMContentLoaded', (event) => {
+        override();
+    });
+    override();
+
+})();

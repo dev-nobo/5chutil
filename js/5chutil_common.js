@@ -170,6 +170,7 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
         autoscrollWhenNewPostLoad: false,
         autoEmbedContents: false,
         blurImagePopup: false,
+        expandRefPosts: true,
         idManyCount: 5,
         koro2ManyCount: 5,
         ipManyCount: 5,
