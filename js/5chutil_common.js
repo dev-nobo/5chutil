@@ -154,12 +154,13 @@ var GOCHUTIL = GOCHUTIL || {};
     // div.ad--bottom, div.ad--right > *, div#banner, div[id^="horizontalbanners"], div#AD_e4940a622def4b87c34cd9b928866823_1, div#ads-ADU-DYQA7DD0, div.footer.push + div, iframe[src$="://cache.send.microad.jp/js/cookie_loader.html"]
     let defaultDeleteSelectors = ``;
 
-    let defaultCustomCss = `div.list_popup { line-height: 15px; }
-div.list_popup span { font-size: 13px; }
-div.list_popup span.control_link { font-size: 12px; }
-div.list_popup div.meta { white-space: nowrap; }
-div.list_popup div.post { margin-bottom: 4px; padding:4px; }
-div.list_popup div.post div.message { padding: 2px 0 1px; }`;
+    let defaultCustomCss = `div.popup.list_popup { line-height: 15px; }
+div.popup.list_popup span { font-size: 13px; }
+div.popup.list_popup span.control_link { font-size: 12px; }
+div.popup.list_popup div.meta { white-space: nowrap; }
+div.popup.list_popup div.post { margin-bottom: 4px; padding:4px; }
+div.popup.list_popup div.post div.message { padding: 2px 0 1px; }
+`;
 
     // ==================
 

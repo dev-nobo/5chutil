@@ -199,6 +199,15 @@ div.message span.embed:hover {
 
 div.popup {
     overflow: auto;
+    border: 1px solid rgb(51, 51, 51);
+    position: absolute;
+    background-color: rgb(239, 239, 239);
+    display: block;
+    padding: 5px;
+}
+div.popup div.post {
+    padding: 0;
+    margin: 0;
 }
 
 div.post div.childcontents {
@@ -1119,12 +1128,13 @@ var GOCHUTIL = GOCHUTIL || {};
     // div.ad--bottom, div.ad--right > *, div#banner, div[id^="horizontalbanners"], div#AD_e4940a622def4b87c34cd9b928866823_1, div#ads-ADU-DYQA7DD0, div.footer.push + div, iframe[src$="://cache.send.microad.jp/js/cookie_loader.html"]
     let defaultDeleteSelectors = ``;
 
-    let defaultCustomCss = `div.list_popup { line-height: 15px; }
-div.list_popup span { font-size: 13px; }
-div.list_popup span.control_link { font-size: 12px; }
-div.list_popup div.meta { white-space: nowrap; }
-div.list_popup div.post { margin-bottom: 4px; padding:4px; }
-div.list_popup div.post div.message { padding: 2px 0 1px; }`;
+    let defaultCustomCss = `div.popup.list_popup { line-height: 15px; }
+div.popup.list_popup span { font-size: 13px; }
+div.popup.list_popup span.control_link { font-size: 12px; }
+div.popup.list_popup div.meta { white-space: nowrap; }
+div.popup.list_popup div.post { margin-bottom: 4px; padding:4px; }
+div.popup.list_popup div.post div.message { padding: 2px 0 1px; }
+`;
 
     // ==================
 
@@ -1829,7 +1839,7 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
 
         // ポップアップ要素作成.
         let createPopup = (popupId, popupClass, $inner) => {
-            let $popup = $(`<div id="${popupId}" class="popup popup-container" style="border: 1px solid rgb(51, 51, 51); position: absolute; background-color: rgb(239, 239, 239); display: block; padding: 5px;"/>`);
+            let $popup = $(`<div id="${popupId}" class="popup popup-container"/>`);
             $popup.append($inner);
             $popup.addClass(popupClass);
 
@@ -1843,15 +1853,11 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
         }
 
         // ポップアップの表示処理.
-        let showPopupInner = async ($target, popupId, popupClass, innerContentAsync, offset, popupTypeId = undefined) => {
+        let showPopupInner = async ($target, popupId, popupClass, innerContentAsync, offset) => {
 
             let $inner = await innerContentAsync($target)
 
             let parentId = $target.closest("div.popup-container").attr("id");
-            // 親Popupと同タイプの場合にはそのメッセージを表示.
-            if (parentId && popupTypeId && $(`#${parentId}`).data("popup-type-id") == popupTypeId) {
-                $inner = $("<div>現在のポップアップと同じです</div>")
-            }
             // 下位階層のPopup以外は閉じてしまう.
             while ((!parentId || parentId != last(popupStack)) && popupStack.length > 0) {
                 removePopup(popupStack.pop());
@@ -1888,7 +1894,6 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
 
                 $popup.data("place-func", place);
                 $popup.data("size-func", size);
-                $popup.data("popup-type-id", popupTypeId);
 
                 if ($popup.find("img").length <= 0) {
                     size();
@@ -1898,7 +1903,7 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
         }
 
         // ポップアップ表示ハンドラの生成. onmousehover等の引数となる関数を生成する.
-        let createOnShowPopupHandler = (popupClass, position, innerContentAsync, showDelay, popupTypeer = undefined) => {
+        let createOnShowPopupHandler = (popupClass, position, innerContentAsync, showDelay) => {
             return async function () {
                 await initProcessPostsPromise;
                 let $a = $(this);
@@ -1924,7 +1929,7 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
                         timeoutHandles[popupId] = setTimeout(() => {
                             timeoutHandles[popupId] = undefined;
                             $a.removeClass("backgroundwidthprogress")
-                            showPopupInner($a, popupId, popupClass, innerContentAsync, offset, popupTypeer?.($a));
+                            showPopupInner($a, popupId, popupClass, innerContentAsync, offset);
                         }, 1000);
                     } else {
                         // 即時ポップアップ処理.
@@ -1933,7 +1938,7 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
                         }
                         timeoutHandles[popupId] = undefined;
                         $a.removeClass("backgroundwidthprogress");
-                        showPopupInner($a, popupId, popupClass, innerContentAsync, offset, popupTypeer?.($a));
+                        showPopupInner($a, popupId, popupClass, innerContentAsync, offset);
                     }
                 }
             };
@@ -1964,7 +1969,10 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
         };
 
         // ポップアップを閉じれるかチェックして可能なら閉じる
-        let checkAndClosePopup = (popupId) => setTimeout(() => checkAndClosePopupInner(popupId), 250);
+        let closePopupDelay = 250;
+        let checkAndClosePopup = (popupId) => {
+            setTimeout(() => checkAndClosePopupInner(popupId), closePopupDelay);
+        }
 
         let checkAndClosePopupInner = (popupId) => {
             let $target = $(`[data-popup-id="${popupId}"]`);
@@ -2007,14 +2015,21 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
         let listPopup = (selector, popupClass, lister, popupTyper, processContainer) => {
             $("body").on("mouseover", selector, createOnShowPopupHandler(`${popupClass} list_popup`, $a => { return { top: $a.offset().top - 15, left: $a.offset().left + $a.width() } },
                 async $a => {
+                    // 親Popupと同タイプの場合にはそのメッセージを表示.
+                    let parentTypeId = $a.closest(".list_container").data("popup-type-id");
                     let val = getPostValue($a.closest("div.meta").parent());
+                    let typeId = popupTyper(val);
+                    if (parentTypeId == typeId) {
+                        return $("<div>現在のポップアップと同じです</div>");
+                    }
                     let $container = $('<div class="list_container" />');
+                    $container.data("popup-type-id", typeId);
                     lister(val).forEach(pid => $container.append($(`div.post#${pid}`).clone()));
                     $container.find("div.post").after("<br>");
                     processContainer($container, val);
                     processPopupPost($container);
                     return $container;
-                }, false, $a => popupTyper(getPostValue($a.closest("div.meta").parent()))));
+                }, false));
             $("body").on("mouseout", selector, createOnPopupLinkMouseOutHandler());
         };
         let appendChildrenPosts = ($p, lister, ancestors) => {
@@ -2068,7 +2083,10 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
 
         $("body").on("click", "span.ref_expand a", function () {
             if ($(this).hasClass("expand")) {
+                let tmp = closePopupDelay;
+                closePopupDelay = 2000;
                 $(this).closest("div.post").children(".childcontents").children(".childposts").css("display", "none");
+                setTimeout(() => closePopupDelay = tmp, 0);
                 $(this).text("開");
                 $(this).removeClass("expand");
             } else {
@@ -2077,7 +2095,31 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
                 $(this).addClass("expand");
             }
             replaceAllPopup();
-        })
+        });
+
+        // reply_link, back-links のポップアップ処理.
+        $("body").on("mouseover", "div.message a.reply_link, div.meta span.back-links a.href_id", createOnShowPopupHandler("ref_popup",
+            $a => { return { top: $a.offset().top + ($a.hasClass("reply_link") ? - 15 : $a.height()), left: $a.offset().left + $a.width() } },
+            $a => {
+                let refPid = $a.attr("data-href-id");
+                if ($a.hasClass("popup_mark")) {
+                    // ポップアップでマーク付きの場合は親コメントなので、その旨を表示する.
+                    return Promise.resolve($("<div>参照先親投稿です</div>"));
+                }
+                if (refPid) {
+                    let $post = $(`div#${refPid}`).clone();
+                    let p = Promise.resolve($post);
+                    if ($post.length == 0) {
+                        // ページ上にない.fetchする.
+                        let url = threadUrl + refPid;
+                        p = fetchHtml(url, { cache: "force-cache" })
+                            .then(doc => $(doc).find("div.thread div.post:first").clone())
+                            .then($p => processPost($p));
+                    }
+                    return p.then($p => processPopupPost($p));
+                }
+            }, false));
+        $("body").on("mouseout", "div.message a.reply_link, div.meta span.back-links a.href_id", createOnPopupLinkMouseOutHandler());
 
         // あぼーんのポップアップ処理.
         let popupNgHandler = (popupClass, mouseover) => {
@@ -2119,26 +2161,6 @@ div.list_popup div.post div.message { padding: 2px 0 1px; }`;
                     });
             }, true));
         $("body").on("mouseout", "div.message a.ref_another_thread", createOnPopupLinkMouseOutHandler());
-
-        // reply_link, back-links のポップアップ処理.
-        $("body").on("mouseover", "div.message a.reply_link, div.meta span.back-links a.href_id", createOnShowPopupHandler("ref_popup",
-            $a => { return { top: $a.offset().top + ($a.hasClass("reply_link") ? - 15 : $a.height()), left: $a.offset().left + $a.width() } },
-            $a => {
-                let refPid = $a.attr("data-href-id");
-                if (refPid) {
-                    let $post = $(`div#${refPid}`).clone();
-                    let p = Promise.resolve($post);
-                    if ($post.length == 0) {
-                        // ページ上にない.fetchする.
-                        let url = threadUrl + refPid;
-                        p = fetchHtml(url, { cache: "force-cache" })
-                            .then(doc => $(doc).find("div.thread div.post:first").clone())
-                            .then($p => processPost($p));
-                    }
-                    return p.then($p => processPopupPost($p));
-                }
-            }, false));
-        $("body").on("mouseout", "div.message a.reply_link, div.meta span.back-links a.href_id", createOnPopupLinkMouseOutHandler());
 
         // 投稿データのポップアップ前処理. 不要なデータを削除する. (ポップアップ制御のクラスや属性等)
         let processPopupPost = ($obj) => {
