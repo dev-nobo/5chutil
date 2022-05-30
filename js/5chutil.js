@@ -12,7 +12,7 @@
         const rUid = /^ID:([^ ]{8,16})$/;
         const rDate = /^([0-9]{4}\/[0-9]{2}\/[0-9]{2}).*$/;
         const rReplyHref = /\/([0-9]{1,3})$/;
-        const rAnotherThreadHref = /(https?:\/\/.+\.5ch\.net\/test\/read.cgi\/[^/]+\/[0-9]+\/)$/
+        const rAnotherThreadHref = new RegExp(`(https?:\/\/${location.hostname.replace(".", "\.")}\/test\/read.cgi\/[^/]+\/[0-9]+\/)$`);
 
         const threadUrl = ($("#zxcvtypo").val().startsWith("//") ? location.protocol : "") + $("#zxcvtypo").val() + "/";
 
@@ -124,6 +124,23 @@
             return `<span class="control_link ${className}" ${titleAttr}>[${alink}]</span>`;
         }
 
+        let updateControlLink = ($span, text, noLink = false, title = "") => {
+            if (noLink) {
+                $span.children("a").remove();
+                $span.text(`[${text}]`);
+            } else {
+                if ($span.children("a").length == 0) {
+                    $span.html(`[<a href="javascript:void(0)">${text}</a>]`);
+                }else{
+                    $span.children("a").text(`${text}`);
+                }
+            }
+            if (title) {
+                $span.attr("title", title);
+            }
+            return $span;
+        }
+
         // NG制御用リンクタグ生成.
         let createNGControlLinkTag = (ng, className, displayTargetName, titleTargetName) => {
             let controlClassName = ng ? "remove" : "add";
@@ -131,11 +148,16 @@
             if (!titleTargetName) {
                 titleTargetName = displayTargetName;
             }
-            let allClass = `ng_control_link ${controlClassName} ${className}`;
-            let text = `${displayPrefix}${displayTargetName}`;
-            let title = `${displayPrefix}${titleTargetName}`;
-            let link = createControlLinkTag(allClass, text, false, title);
-            return link;
+            return createControlLinkTag(`ng_control_link ${controlClassName} ${className}`, `${displayPrefix}${displayTargetName}`, false, `${displayPrefix}${titleTargetName}`);
+        }
+
+        let updateNGControlLink = (ng, $span, displayTargetName, titleTargetName) => {
+            $span.removeClass("add").removeClass("remove").addClass(ng ? "remove" : "add")
+            let displayPrefix = ng ? "-" : "+";
+            if (!titleTargetName) {
+                titleTargetName = displayTargetName;
+            }
+            return updateControlLink($span, `${displayPrefix}${displayTargetName}`, false, `${displayPrefix}${titleTargetName}`);
         }
 
         // 埋め込み処理.
@@ -156,6 +178,7 @@
         $(document).on("click", "span.embed a", function () {
             let $span = $(this).closest("span.embed");
             $span.after($span.attr("data-embed-content"));
+            replacePopup($(`#${getCurrentPopupIdByElem($span)}`));
             $span.remove();
         });
 
@@ -365,12 +388,30 @@
             return $post;
         };
 
-        $(document).on("click", "a.href_id", function () { scrollToPid($(this).attr("data-href-id")); });
+        if (!_.settings.app.get().popupOnClick) {
+            $(document).on("click", "a.reply_link.href_id", function () { scrollToPid($(this).attr("data-href-id")); });
+        }
 
         let scrollToPid = (pid) => {
-            if (pid) {
-                $('body,html').scrollLeft($("#" + pid).offset().left);
-                $('body,html').animate({ scrollTop: $("#" + pid).offset().top - $("nav.navbar-fixed-top").height() - 10 }, 400, 'swing');
+            let $p = $(`#${pid}`);
+            if (pid && $p.length > 0) {
+                $('body,html').scrollLeft($p.offset().left);
+                $('body,html').animate({ scrollTop: $p.offset().top - $("nav.navbar-fixed-top").height() - 10 }, 400, 'swing');
+                emphasizePost(pid);
+            }
+        };
+
+        let emphasizePost = (pid, duration = 3000) => {
+            let $p = $(`#${pid}`);
+            if (pid && $p.length > 0) {
+                $p.addClass("emphasis");
+                setTimeout(() => {
+                    $p.addClass("removing");
+                    setTimeout(() => {
+                        $p.removeClass("emphasis");
+                        $p.removeClass("removing");
+                    }, 500);
+                }, duration - 500);
             }
         };
 
@@ -421,7 +462,7 @@
         let hideProcessingMessage = () => $("#processing_message").css("display", "none");
 
         // スレッド処理.対象PostIDを指定可能
-        let processAllThread = async (init = false) => processPostsInternal($(".thread .post").toArray().map(p => $(p)), init);
+        let processAllPosts = async (init = false) => processPostsInternal($(".post").toArray().map(p => $(p)), init);
 
         let processPosts = async (pids) => {
             let pidSet = pids?.reduce((p, c) => p.add(c), new Set());
@@ -462,7 +503,9 @@
 
         let processPostsInternal = async (array, init = false) => {
             // 頭から処理していると遅いので、画面に表示しているデータに近いものからバックグラウンドで処理をする.
-            // スクロール位置と画面サイズの半分の位置にあるデータのindexとの差分の絶対値を距離としてソートし、その順に処理する.(実際のoffset位置で計算すると重いのでindex差分絶対値でソートしてしまう)
+            // スクロール位置と画面サイズの半分の位置にあるデータのindexとの差分の絶対値を距離としてソートし、その順に処理する.
+            // (abs(screenCenter - postCenter) でソートしてもそこまで変わらなかったが、indexの方が早いため一応)
+            // ポップアップは割り切って最初に処理する.(fixed の判定等面倒なので。。。)
             // ただし、リロードやブラウザバックで初期表示の場合、ブラウザが前回表示位置に自動スクロールするが、タイミングによってスクロール前に、ここに入ってしまう.
             // その場合、表示中央のデータを正しく取得できないので優先して処理するデータは前回unloadした時の画面表示していたindexと0との距離を利用する.
             let scrollTop = $(window).scrollTop();
@@ -473,15 +516,17 @@
                 // スクロールされているかされる前の場合は、表示中で画面中心に近いものから処理する. 遠いものは非同期で裏で処理する事になる.
                 let idx = beforeInitScroll ? unloadIndex : binarySearch(array, viewCenterPostComparer());
                 if (idx > -1) {
-                    let distanceCalc = i => beforeInitScroll ? Math.min(Math.abs(idx - i), i) : Math.abs(idx - i);
+                    // .thread 配下にないのはポップアップでそれは0距離で最初に処理.
+                    let distanceCalc = ($p, i) => !$p.parent().hasClass("thread") ? 0 : (beforeInitScroll ? Math.min(Math.abs(idx - i), i) : Math.abs(idx - i));
+                    // let distanceCalc = ($p, i) => beforeInitScroll ? Math.min(Math.abs(idx - i), i) : Math.abs(idx - i);
                     array = array
-                        .map(($p, i) => { return { distance: distanceCalc(i), $p: $p } })
+                        .map(($p, i) => { return { distance: distanceCalc($p, i), $p: $p } })
                         .sort((l, r) => l.distance - r.distance)
                         .map(o => o.$p);
                 }
             }
 
-            const immidiateProcCount = 15;
+            const immidiateProcCount = 20;
             if (array.length > immidiateProcCount) {
                 // とりあえずの表示用にある程度だけ同期実行してしまう. 残りは非同期で裏で処理.
                 array.slice(0, immidiateProcCount).forEach(processPost);
@@ -511,8 +556,8 @@
             // Parse済みデータ取得.
             let value = getPostValue($post);
 
-            let $msg = $post.find(".message");
-            let $meta = $post.find(".meta");
+            let $msg = $post.children(".message");
+            let $meta = $post.children(".meta");
 
             // NG判定.
             let matchNG = matchNGPost(value);
@@ -523,15 +568,8 @@
                 $msg.each((i, e) => e.normalize());
             }
 
-            $post.find(".control_link").remove();
-
             $post.find(".abone").removeClass("abone");
             $post.find(".abone_message").remove();
-
-            $post.find(".gochutil_wrapper").contents().unwrap();
-            $post.find(".gochutil_wrapper").remove();
-
-            $post.find(".back-links.gochutil").remove();
 
             if (matchNG.word) {
                 // NG Word ハイライト.
@@ -548,55 +586,66 @@
 
             // 制御用リンク追加.
             let createCountControlLinkTag = (map, key, cls, settingKey) => (map[key] && createControlLinkTag(cls + (map[key].length >= _.settings.app.get()[settingKey] ? " many" : ""), (map[key].indexOf(value.postId) + 1) + "/" + map[key].length.toString(), map[key].length <= 1) || "");
-
-            // パフォーマンスのため、div.meta は htmlを直接書き換えて、DOMの更新を一度で行う.
-            let meta = $meta.html();
-            meta = meta.replace(/(<span class="name">)(.+?)(<\/span>)/, function (match, c1, c2, c3) {
-                let spanName = c2;
-                if (value.name) {
-                    spanName = spanName.replace(rName, "$&" + createNGControlLinkTag(matchNG.name, "ng_name", "", "NG Name"));
+            let updateCountControlLink = (map, key, $span, settingKey) => {
+                if (map[key]) {
+                    updateControlLink($span, (map[key].indexOf(value.postId) + 1) + "/" + map[key].length.toString(), map[key].length <= 1);
+                    map[key].length >= _.settings.app.get()[settingKey] ? $span.hasClass("many") || $span.addClass("many") : $span.removeClass("many");
                 }
-                if (value.slip) {
-                    spanName = spanName.replace(rSlip, (match) =>
-                        match
-                            .replace(rKoro2, '<span class="koro2 gochutil_wrapper">$&</span>' + createNGControlLinkTag(matchNG.koro2, "ng_koro2", "", "NG Korokoro") + createCountControlLinkTag(koro2Map, value.koro2, "ref_koro2 count_link", "koro2ManyCount"))
-                            .replace(rIp, '<span class="ip gochutil_wrapper">$&</span>' + createNGControlLinkTag(matchNG.ip, "ng_ip", "", "NG IP") + createCountControlLinkTag(ipMap, value.ip, "ref_ip count_link", "ipManyCount"))
-                    );
+            };
+
+            if ($meta.attr("data-initialized")) {
+                // ヘッダーは別途編集される事があるので、更新時は再生成は避ける.
+                updateNGControlLink(matchNG.name, $meta.find(".ng_name"), "", "NG Name");
+                updateNGControlLink(matchNG.koro2, $meta.find(".ng_koro2"), "", "NG Korokoro");
+                updateNGControlLink(matchNG.ip, $meta.find(".ng_ip"), "", "NG IP");
+                updateNGControlLink(matchNG.trip, $meta.find(".ng_trip"), "", "NG Trip");
+                updateNGControlLink(matchNG.id, $meta.find(".ng_id"), "", "NG ID");
+
+                value.koro2 && updateCountControlLink(koro2Map, value.koro2, $meta.find(".ref_koro2.count_link"), "koro2ManyCount");
+                value.ip && updateCountControlLink(ipMap, value.ip, $meta.find(".ref_ip.count_link"), "ipManyCount");
+                value.dateAndID && updateCountControlLink(idMap, value.dateAndID.id, $meta.find(".ref_id.count_link"), "idManyCount");
+
+                if (refPostId[value.postId] && refPostId[value.postId].length > 0) {
+                    let $span = $meta.find(".ref_posts.count_link");
+                    updateControlLink($span, `REF(${refPostId[value.postId].length})`);
+                    refPostId[value.postId].length >= _.settings.app.get().refPostManyCount ? $span.hasClass("many") || $span.addClass("many") : $span.removeClass("many");
+                } else {
+                    $meta.find(".ref_posts.count_link").remove();
                 }
-                if (value.trip) {
-                    spanName = spanName.replace(rTrip, "$&" + createNGControlLinkTag(matchNG.trip, "ng_trip", "", "NG Trip"));
-                }
-                return c1 + spanName + c3;
-            });
-
-            if (value.dateAndID) {
-                meta = meta.replace(/(<span class="uid">)(.+?)(<\/span>)/, function (match, c1, c2, c3) {
-                    let spanUid = c2.replace(value.dateAndID.id, `<span class="uid_only gochutil_wrapper">$&</span>`);
-                    return c1 + spanUid + c3 + createNGControlLinkTag(matchNG.id, "ng_id", "", "NG ID") + createCountControlLinkTag(idMap, value.dateAndID.id, "ref_id count_link", "idManyCount");
-                });
-            }
-
-            if (refPostId[value.postId] && refPostId[value.postId].length > 0) {
-
-                /*
-                meta = meta.replace(/(<span class="number">)(.+?)(<\/span>)/, function (match, c1, c2, c3) {
-                    let cls = "ref_posts";
-                    if (refPostId[value.postId].length > _.settings.app.get().refPostManyCount) {
-                        cls = cls + " many";
+            } else {
+                // パフォーマンスのため、div.meta は htmlを直接書き換えて、DOMの更新を一度で行う.
+                let meta = $meta.html();
+                meta = meta.replace(/(<span class="name">)(.+?)(<\/span>)/, function (match, c1, c2, c3) {
+                    let spanName = c2;
+                    if (value.name) {
+                        spanName = spanName.replace(rName, "$&" + createNGControlLinkTag(matchNG.name, "ng_name", "", "NG Name"));
                     }
-                    return c1 + `<a class="${cls}" href="javascript:void(0);">${c2}</a>` + c3;
+                    if (value.slip) {
+                        spanName = spanName.replace(rSlip, (match) =>
+                            match
+                                .replace(rKoro2, '<span class="koro2 gochutil_wrapper">$&</span>' + createNGControlLinkTag(matchNG.koro2, "ng_koro2", "", "NG Korokoro") + createCountControlLinkTag(koro2Map, value.koro2, "ref_koro2 count_link", "koro2ManyCount"))
+                                .replace(rIp, '<span class="ip gochutil_wrapper">$&</span>' + createNGControlLinkTag(matchNG.ip, "ng_ip", "", "NG IP") + createCountControlLinkTag(ipMap, value.ip, "ref_ip count_link", "ipManyCount"))
+                        );
+                    }
+                    if (value.trip) {
+                        spanName = spanName.replace(rTrip, "$&" + createNGControlLinkTag(matchNG.trip, "ng_trip", "", "NG Trip"));
+                    }
+                    return c1 + spanName + c3;
                 });
-                */
 
-                // back-links
-                /*
-                meta += refPostId[value.postId]
-                    .map(pid => `<span class="back-links gochutil"><a class="href_id" href="javascript:void(0);" style="font-size:0.7em;margin-left: 5px;display:inline-block;" data-href-id="${pid}">&gt;&gt;${pid}</a></span>`)
-                    .reduce((p, c) => p + c, "");
-                */
-                meta += createControlLinkTag("ref_posts count_link" + (refPostId[value.postId].length >= _.settings.app.get().refPostManyCount ? " many" : ""), `REF(${refPostId[value.postId].length})`);
+                if (value.dateAndID) {
+                    meta = meta.replace(/(<span class="uid">)(.+?)(<\/span>)/, function (match, c1, c2, c3) {
+                        let spanUid = c2.replace(value.dateAndID.id, `<span class="uid_only gochutil_wrapper">$&</span>`);
+                        return c1 + spanUid + c3 + createNGControlLinkTag(matchNG.id, "ng_id", "", "NG ID") + createCountControlLinkTag(idMap, value.dateAndID.id, "ref_id count_link", "idManyCount");
+                    });
+                }
+
+                if (refPostId[value.postId] && refPostId[value.postId].length > 0) {
+                    meta += createControlLinkTag("ref_posts count_link" + (refPostId[value.postId].length >= _.settings.app.get().refPostManyCount ? " many" : ""), `REF(${refPostId[value.postId].length})`);
+                }
+                $meta.html(meta);
+                $meta.attr("data-initialized", "true");
             }
-            $meta.html(meta);
 
             // replylink
             $msg.find(".reply_link").each((i, e) => {
@@ -619,14 +668,83 @@
         let popupSeq = 0;
         let nextPopupId = () => "gochutil-popup-" + (++popupSeq);
 
-        let popupStack = [];
         let timeoutHandles = {};
-        let last = (array) => array?.[array.length - 1];
 
         // ポップアップ要素作成.
-        let createPopup = (popupId, popupClass, $inner) => {
-            let $popup = $(`<div id="${popupId}" class="popup popup-container"/>`);
-            $popup.append($inner);
+        let createPopup = (popupId, parentPopupId, popupClass, $inner, option) => {
+            let $popup = $(`<div id="${popupId}" class="popup popup-container"/>`).attr("data-parent-popup-id", parentPopupId);
+            let $header = $(`<div class="popup_header"><span class="left"></span><span class="right"></span></div>`);
+            let $headerL = $header.find(".left");
+            let $headerR = $header.find(".right");
+            let needHeader = false;
+            if (option?.["title"]) {
+                $headerL.append($(`<span class="popup_title"></span>`).text(option["title"]));
+                needHeader = true
+            }
+            if (option?.["pinnable"]) {
+                $popup.data("pin-func", () => {
+                    $popup.addClass("pinned").addClass("moveable").addClass("resizeable").removeAttr("data-parent-popup-id");
+                    $headerR.find(".popup_pin").hide();
+                    $headerR.find(".popup_unpin").show();
+                    $headerR.find(".header_fix").show();
+                    _.settings.app.get().fixOnPinned && $popup.data("fix-func")?.();
+                });
+                $popup.data("unpin-func", () => {
+                    $popup.removeClass("pinned").removeClass("moveable").removeClass("resizeable").attr("data-parent-popup-id", parentPopupId);
+                    $headerR.find(".popup_pin").show();
+                    $headerR.find(".popup_unpin").hide();
+                    $headerR.find(".header_fix").hide();
+                    $popup.data("unfix-func")?.();
+                });
+                $popup.data("togglePin-func", () => $popup.data($popup.hasClass("pinned") ? "unpin-func" : "pin-func")());
+                $headerR.append($(createControlLinkTag("popup_pin", "Pin")).on("click", () => $popup.data("pin-func")()));
+                $headerR.append($(createControlLinkTag("popup_unpin", "Unpin")).on("click", () => $popup.data("unpin-func")()));
+                $popup.addClass("pinnable")
+                $popup.data("unpin-func")();
+                needHeader = true
+
+                if (option?.["fixable"]) {
+                    let $headerFix = $(`<span class="header_fix"></span>`);
+                    $headerR.prepend($headerFix);
+                    $popup.data("fix-func", () => {
+                        $popup.css("position", "fixed");
+                        $popup.addClass("fixed").offset({ top: $popup.offset().top - $(window).scrollTop(), left: $popup.offset().left - $(window).scrollLeft() })
+                        $headerFix.find(".popup_fix").hide();
+                        $headerFix.find(".popup_unfix").show();
+                    });
+                    $popup.data("unfix-func", () => {
+                        $popup.css("position", "absolute");
+                        $popup.removeClass("fixed").offset({ top: $popup.offset().top + $(window).scrollTop(), left: $popup.offset().left + $(window).scrollLeft() })
+                        $headerFix.find(".popup_fix").show();
+                        $headerFix.find(".popup_unfix").hide();
+                    });
+                    $popup.data("toggleFix-func", () => $popup.data($popup.hasClass("fixed") ? "unfix-func" : "fix-func")());
+                    $headerFix.append($(createControlLinkTag("popup_fix", "Fix")).on("click", () => $popup.data("fix-func")()));
+                    $headerFix.append($(createControlLinkTag("popup_unfix", "Unfix")).on("click", () => $popup.data("unfix-func")()));
+                    $popup.addClass("fixable");
+                    $popup.data("unfix-func")();
+                    $headerFix.hide();
+                }
+            }
+            if (needHeader) {
+                $popup.append($header);
+                $header.on("mousedown", function (e) {
+                    if ($popup.hasClass("moveable")) {
+                        $popup.addClass("moving");
+                        let mousedownEvent = e;
+                        let pos = $popup.offset();
+                        $(document).off("mousemove");
+                        $(document).on("mousemove", function (e) {
+                            $popup.offset({ left: pos.left + e.pageX - mousedownEvent.pageX, top: pos.top + e.pageY - mousedownEvent.pageY });
+                        });
+                    }
+                });
+                $header.on("mouseup", function (e) {
+                    $(document).off("mousemove");
+                    $popup.removeClass("moving");
+                });
+            }
+            $popup.append($(`<div class="innerContainer"></div>`).append($inner));
             $popup.addClass(popupClass);
 
             $popup.hover(function () {
@@ -638,20 +756,26 @@
             return $popup;
         }
 
+        let getParentPopupId = popupId => $(`#${popupId}`).attr("data-parent-popup-id");
+        let getCurrentPopupIdByElem = $e => $e.closest("div.popup-container").attr("id") ?? "popup-root";
+        let getChildPopupIds = popupId => $(`[data-parent-popup-id="${popupId}"]`).map((i, e) => $(e).attr("id")).toArray() ?? [];
+        let getDescendantPopupIds = popupId => getChildPopupIds(popupId).flatMap(pid => [pid].concat(getDescendantPopupIds(pid)));
+
         // ポップアップの表示処理.
-        let showPopupInner = async ($target, popupId, popupClass, innerContentAsync, offset) => {
+        let showPopupInner = async ($target, popupId, popupClass, innerContentAsync, fixedPos) => {
 
-            let $inner = await innerContentAsync($target)
+            let ret = await innerContentAsync($target)
+            let $inner = ret?.["inner"] || ret;
+            let popupOption = ret?.["option"];
 
-            let parentId = $target.closest("div.popup-container").attr("id");
+            let parentId = getCurrentPopupIdByElem($target);
             // 下位階層のPopup以外は閉じてしまう.
-            while ((!parentId || parentId != last(popupStack)) && popupStack.length > 0) {
-                removePopup(popupStack.pop());
-            }
+            getDescendantPopupIds(parentId)
+                .forEach(pid => removePopup(pid));
 
             if ($inner && $inner.length > 0) {
 
-                let $popup = createPopup(popupId, popupClass, $inner);
+                let $popup = createPopup(popupId, parentId, popupClass, $inner, popupOption);
 
                 let topMargin = $("nav.navbar-fixed-top").height() + 10;
                 let leftMargin = 10;
@@ -659,15 +783,46 @@
                 let maxWidth = $(window).width() - leftMargin - 10;
 
                 let place = () => {
-                    $popup.offset({
-                        top: Math.min(offset().top, Math.max($(window).scrollTop() + topMargin, $(window).scrollTop() + topMargin + maxHeight - $popup.outerHeight())),
-                        left: Math.min(offset().left, Math.max($(window).scrollLeft() + leftMargin, $(window).scrollLeft() + leftMargin + maxWidth - $popup.outerWidth()))
-                    })
+                    if (fixedPos) {
+                        $popup.offset(fixedPos($target));
+                    } else {
+                        let to = $target.offset();
+                        let left = to.left - $(window).scrollLeft(),
+                            right = left + $target.width(),
+                            top = to.top - $(window).scrollTop(),
+                            bottom = top + $target.height();
+                        let pw = $popup.outerWidth(),
+                            ph = $popup.outerHeight();
+                        // リンクタグより右の幅より小さい, リンクタグより左の幅より小さい, リンクタグ含めて右の幅より小さい, リンクタグ含めて左の幅より小さい, その他 の場合でそれぞれ位置決定. 上下も同様.
+                        let widthPat = [
+                            { match: pw < maxWidth + leftMargin - right, freeY: true, left: right },
+                            { match: pw < left - leftMargin, freeY: true, left: left - pw },
+                            { match: pw < maxWidth + leftMargin - left, freeY: false, left: left },
+                            { match: pw < right - leftMargin, freeY: false, left: right - pw },
+                            { match: true, freeY: false, left: leftMargin + maxWidth - pw }];
+                        let x = widthPat.find(w => w.match);
+                        let heightPat = [
+                            { match: ph < maxHeight + topMargin - bottom, freeX: true, top: bottom, coordinateV: -1 },
+                            { match: ph < top - topMargin, freeX: true, top: top - ph, coordinateV: 1 },
+                            { match: ph < maxHeight + topMargin - top, freeX: false, top: top },
+                            { match: ph < bottom - topMargin, freeX: false, top: bottom - ph },
+                            { match: true, freeX: false, top: topMargin + maxHeight - ph }];
+                        let y = heightPat.find(h => h.match);
+                        let po = { top: y.top + $(window).scrollTop(), left: x.left + $(window).scrollLeft() };
+                        if (x.freeY && y.freeX) {
+                            // 上下ともに自由な場合には、Y位置を微調整.
+                            po.top += y.coordinateV * ($target.height() + (ph > 40 ? 15 : 0));
+                        }
+                        $popup.offset(po);
+                    }
                 };
                 let size = () => {
                     $popup.css("width", "").css("height", "");
                     $popup.outerHeight(Math.min($popup.outerHeight(), maxHeight));
                     $popup.outerWidth(Math.min($popup.outerWidth(), maxWidth));
+                };
+                let autoSize = () => {
+                    $popup.css("width", "").css("height", "");
                 };
 
                 $popup.find("img").on("load", function () {
@@ -676,10 +831,13 @@
                 });
 
                 $("body").append($popup);
-                popupStack.push(popupId);
+                $target.addClass("popupping");
 
                 $popup.data("place-func", place);
                 $popup.data("size-func", size);
+                $popup.data("autoSize-func", autoSize);
+
+                $target.trigger("showPopup");
 
                 if ($popup.find("img").length <= 0) {
                     size();
@@ -689,7 +847,7 @@
         }
 
         // ポップアップ表示ハンドラの生成. onmousehover等の引数となる関数を生成する.
-        let createOnShowPopupHandler = (popupClass, position, innerContentAsync, showDelay) => {
+        let createOnShowPopupHandler = (popupClass, innerContentAsync, showDelay, fixedPos) => {
             return async function () {
                 await initProcessPostsPromise;
                 let $a = $(this);
@@ -703,32 +861,48 @@
                 popupId = nextPopupId();
                 $a.attr("data-popup-id", popupId);
 
-                let offset = () => position($a);
-
-                if (offset()) {
-                    if (showDelay) {
-                        // タイマー設定して、1秒後にポップアップ処理.
-                        if (timeoutHandles[popupId]) {
-                            clearTimeout(timeoutHandles[popupId]);
-                        }
-                        $a.addClass("backgroundwidthprogress");
-                        timeoutHandles[popupId] = setTimeout(() => {
-                            timeoutHandles[popupId] = undefined;
-                            $a.removeClass("backgroundwidthprogress")
-                            showPopupInner($a, popupId, popupClass, innerContentAsync, offset);
-                        }, 1000);
-                    } else {
-                        // 即時ポップアップ処理.
-                        if (timeoutHandles[popupId]) {
-                            clearTimeout(timeoutHandles[popupId]);
-                        }
-                        timeoutHandles[popupId] = undefined;
-                        $a.removeClass("backgroundwidthprogress");
-                        showPopupInner($a, popupId, popupClass, innerContentAsync, offset);
+                if (showDelay) {
+                    // タイマー設定して、1秒後にポップアップ処理.
+                    if (timeoutHandles[popupId]) {
+                        clearTimeout(timeoutHandles[popupId]);
                     }
+                    $a.addClass("backgroundwidthprogress");
+                    timeoutHandles[popupId] = setTimeout(() => {
+                        timeoutHandles[popupId] = undefined;
+                        $a.removeClass("backgroundwidthprogress")
+                        showPopupInner($a, popupId, popupClass, innerContentAsync, fixedPos);
+                    }, 1000);
+                } else {
+                    // 即時ポップアップ処理.
+                    if (timeoutHandles[popupId]) {
+                        clearTimeout(timeoutHandles[popupId]);
+                    }
+                    timeoutHandles[popupId] = undefined;
+                    $a.removeClass("backgroundwidthprogress");
+                    showPopupInner($a, popupId, popupClass, innerContentAsync, fixedPos);
                 }
             };
         }
+
+        let createOnPinPopupHandler = () => {
+            return function () {
+                let $a = $(this);
+                let $popup = $(`#${$a.attr("data-popup-id")}`);
+                if ($popup.length > 0) {
+                    $popup.data("togglePin-func")?.();
+                    if (_.settings.app.get().closeOtherPopupOnClick) {
+                        removeAllPopup(true, (i, e) => $(e).attr("id") != $a.attr("data-popup-id"));
+                    }
+                } else {
+                    $a.off("showPopup").on("showPopup", () => {
+                        $(`#${$a.attr("data-popup-id")}`).data("togglePin-func")?.();
+                        if (_.settings.app.get().closeOtherPopupOnClick) {
+                            removeAllPopup(true, (i, e) => $(e).attr("id") != $a.attr("data-popup-id"));
+                        }
+                    });
+                }
+            };
+        };
 
         // ポップアップ表示リンクのマウスアウトハンドラ.
         let createOnPopupLinkMouseOutHandler = () => {
@@ -763,43 +937,40 @@
         let checkAndClosePopupInner = (popupId) => {
             let $target = $(`[data-popup-id="${popupId}"]`);
             let $popup = $(`#${popupId}`);
-            if ($popup.length > 0 && !$target.hasClass("mouse_hover") && !$popup.hasClass("mouse_hover") && last(popupStack) == popupId) {
-                // リンクの上にマウスがなく、ポップアップの上にマウスがなく、スタックの一番上のポップアップであれば、削除.
-                removePopup(popupId);
-                popupStack.pop();
-                if (last(popupStack)) {
-                    setTimeout(() => checkAndClosePopupInner(last(popupStack)), 0);
-                }
-            }
-        };
+            let children = getChildPopupIds(popupId);
+            let parent = getParentPopupId(popupId);
 
-        // ポップアップを削除.
-        let removePopup = (popupId) => {
-            if (popupId) {
-                $(`[data-popup-id="${popupId}"]`).removeAttr("data-popup-id");
-                $(`#${popupId}`).remove();
+            if ($popup.length > 0 && !$target.hasClass("mouse_hover") && !$popup.hasClass("mouse_hover") && children.length == 0) {
+                // リンクの上にマウスがなく、ポップアップの上にマウスがなく、スタックの一番上かスタック外のポップアップであれば、削除.
+                removePopup(popupId);
+                if (parent) {
+                    setTimeout(() => checkAndClosePopupInner(parent), 0);
+                }
             }
         };
 
         // 画像のポップアップ処理
-        $("body").on("mouseover", "div.message a.thumbnail_gochutil img", createOnShowPopupHandler("img_popup",
-            $img => {
-                let $a = $img.closest("a");
-                if ($a.find("img.thumb_i").length > 0) {
-                    return { top: $a.find("img.thumb_i").offset().top, left: $a.find("img.thumb_i").offset().left + $a.find("img.thumb_i").width() };
-                }
-            },
-            async $img => $('<div class="img_container loader" />')
-                .append($('<img class="popup_img" referrerpolicy="no-referrer" />').on("load", function () { $(this).closest("div.img_container").removeClass("loader") }).attr("src", $img.closest("a").attr("data-href")))
-                .addClass(_.settings.app.get().blurImagePopup ? "blur" : "")
-                .on("click", function () { $(this).removeClass("blur") })
-                .append($('<div class="remove_blur">クリックでぼかし解除</div>').on("click", function () { $(this).closest("div.img_container").removeClass("blur"); }))
-            , false));
-        $("body").on("mouseout", "div.message a.thumbnail_gochutil img", createOnPopupLinkMouseOutHandler());
+        let imgPopup = (selector, popupClass) => {
+            let type = _.settings.app.get().popupOnClick ? "click" : "mouseover";
+            $("body").on(type, selector, createOnShowPopupHandler(popupClass,
+                async $img => ({
+                    inner: $('<div class="img_container loader" />')
+                        .append($('<img class="popup_img" referrerpolicy="no-referrer" />').on("load", function () { $(this).closest("div.img_container").removeClass("loader") }).attr("src", $img.closest("a").attr("data-href")))
+                        .addClass(_.settings.app.get().blurImagePopup ? "blur" : "")
+                        .on("click", function () { $(this).removeClass("blur") })
+                        .append($('<div class="remove_blur">クリックでぼかし解除</div>').on("click", function () { $(this).closest("div.img_container").removeClass("blur"); })),
+                    option: _.settings.app.get().pinnablePopup ? { "title": "Image", pinnable: true, fixable: true } : {}
+                })
+                , false));
+            $("body").on("click", selector, createOnPinPopupHandler());
+            $("body").on("mouseout", selector, createOnPopupLinkMouseOutHandler());
+        };
+        imgPopup("div.message a.thumbnail_gochutil img", "img_popup");
 
         // Korokoro, ip, id, 参照レス のレスリストポップアップ処理
         let listPopup = (selector, popupClass, lister, popupTyper, processContainer) => {
-            $("body").on("mouseover", selector, createOnShowPopupHandler(`${popupClass} list_popup`, $a => { return { top: $a.offset().top - 15, left: $a.offset().left + $a.width() } },
+            let type = _.settings.app.get().popupOnClick ? "click" : "mouseover";
+            $("body").on(type, selector, createOnShowPopupHandler(`${popupClass} list_popup`,
                 async $a => {
                     // 親Popupと同タイプの場合にはそのメッセージを表示.
                     let parentTypeId = $a.closest(".list_container").data("popup-type-id");
@@ -813,11 +984,24 @@
                     lister(val).forEach(pid => $container.append($(`div.post#${pid}`).clone()));
                     $container.find("div.post").after("<br>");
                     processContainer($container, val);
+                    $container.find("div.post").each((i, e) => appendScrollOwn($(e)));
                     processPopupPost($container);
-                    return $container;
+                    return {
+                        inner: $container,
+                        option: _.settings.app.get().pinnablePopup ? { "title": typeId, pinnable: true, fixable: true } : {}
+                    };
                 }, false));
+            $("body").on("click", selector, createOnPinPopupHandler());
             $("body").on("mouseout", selector, createOnPopupLinkMouseOutHandler());
         };
+
+        let appendScrollOwn = ($p) => $p && $p.children(".meta").prepend(createControlLinkTag("scrollOwn", ">>"));
+        $("body").on("click", ".scrollOwn a", function () {
+            let pid = getPostId($(this).closest(".post"));
+            scrollToPid(pid);
+            emphasizePost(pid);
+        });
+
         let appendChildrenPosts = ($p, lister, ancestors) => {
             let v = getPostValue($p);
             let children = lister(v)?.filter(pid => !ancestors.has(pid));
@@ -837,11 +1021,11 @@
             }
         };
 
-        listPopup("span.ref_koro2 a", "koro2_popup", (v) => koro2Map[v.koro2], v => `list-koro2-${v.koro2}`, $c => $c.find("span.koro2.gochutil_wrapper").addClass("popup_mark"));
-        listPopup("span.ref_ip a", "ip_popup", (v) => ipMap[v.ip], v => `list-ip-${v.ip}`, $c => $c.find("span.ip.gochutil_wrapper").addClass("popup_mark"));
-        listPopup("span.ref_id a", "id_popup", (v) => idMap[v.dateAndID.id], v => `list-id-${v.dateAndID.id}`, $c => $c.find("span.uid_only.gochutil_wrapper").addClass("popup_mark"));
-        listPopup("span.ref_posts a", "ref_post_popup", (v) => refPostId[v.postId], v => `list-ref-${v.postId}`, ($c, v) => {
-            $c.find(`a.reply_link.href_id[data-href-id="${v.postId}"]`).addClass("popup_mark");
+        listPopup("span.ref_koro2 a", "koro2_popup", (v) => koro2Map[v.koro2], v => `SLIP(Korokoro2) : ${v.koro2}`, $c => $c.find("span.koro2.gochutil_wrapper").addClass("ref_mark"));
+        listPopup("span.ref_ip a", "ip_popup", (v) => ipMap[v.ip], v => `SLIP(IP) : ${v.ip}`, $c => $c.find("span.ip.gochutil_wrapper").addClass("ref_mark"));
+        listPopup("span.ref_id a", "id_popup", (v) => idMap[v.dateAndID.id], v => `ID : ${v.dateAndID.id}`, $c => $c.find("span.uid_only.gochutil_wrapper").addClass("ref_mark"));
+        listPopup("span.ref_posts a", "ref_post_popup", (v) => refPostId[v.postId], v => `Ref : >>${v.postId}`, ($c, v) => {
+            $c.find(`a.reply_link.href_id[data-href-id="${v.postId}"]`).addClass("ref_mark");
             $c.find(".post").each((i, e) => {
                 let $p = $(e);
                 let ancestors = new Set();
@@ -851,11 +1035,11 @@
                     $l = $(e);
                     let refPid = getPostId($l.closest("div.post").parent().closest("div.post"));
                     if ($l.attr("data-href-id") == refPid) {
-                        $l.addClass("popup_mark");
+                        $l.addClass("ref_mark");
                     }
                 });
             });
-
+            // 開閉処理.
             $c.find("div.indent").closest(".post").children(".childcontents").find(".indent").append(createControlLinkTag("ref_expand", "閉", false, "Expand / Collapse Ref Posts"))
             let $expandLink = $c.find("span.ref_expand a");
             $expandLink.addClass("expand");
@@ -880,102 +1064,138 @@
                 $(this).text("閉");
                 $(this).addClass("expand");
             }
-            replaceAllPopup();
+            replacePopup($(`#${getCurrentPopupIdByElem($(this))}`));
         });
 
-        // reply_link, back-links のポップアップ処理.
-        $("body").on("mouseover", "div.message a.reply_link, div.meta span.back-links a.href_id", createOnShowPopupHandler("ref_popup",
-            $a => { return { top: $a.offset().top + ($a.hasClass("reply_link") ? - 15 : $a.height()), left: $a.offset().left + $a.width() } },
-            $a => {
-                let refPid = $a.attr("data-href-id");
-                if ($a.hasClass("popup_mark")) {
-                    // ポップアップでマーク付きの場合は親コメントなので、その旨を表示する.
-                    return Promise.resolve($("<div>参照先親投稿です</div>"));
-                }
-                if (refPid) {
-                    let $post = $(`div#${refPid}`).clone();
-                    let p = Promise.resolve($post);
-                    if ($post.length == 0) {
-                        // ページ上にない.fetchする.
-                        let url = threadUrl + refPid;
-                        p = fetchHtml(url, { cache: "force-cache" })
-                            .then(doc => $(doc).find("div.thread div.post:first").clone())
-                            .then($p => processPost($p));
-                    }
-                    return p.then($p => processPopupPost($p));
-                }
-            }, false));
-        $("body").on("mouseout", "div.message a.reply_link, div.meta span.back-links a.href_id", createOnPopupLinkMouseOutHandler());
-
-        // あぼーんのポップアップ処理.
-        let popupNgHandler = (popupClass, mouseover) => {
-            return createOnShowPopupHandler(popupClass,
-                $a => {
-                    if (mouseover && _.settings.app.get().dontPopupMouseoverNgMsg) {
-                        return;
-                    }
-                    return $a.offset();
-                },
+        // reply_link のポップアップ処理.
+        let refLinkPopup = (selector, popupClass) => {
+            let type = _.settings.app.get().popupOnClick ? "click" : "mouseover";
+            $("body").on(type, selector, createOnShowPopupHandler(popupClass,
                 async $a => {
-                    let $inner = $a.closest("div.message.abone").clone().removeClass("abone");
-                    $inner.find("span.abone_message").remove();
-                    $inner.find("span").removeClass("abone");
-                    return $inner;
-                }, mouseover);
+                    let refPid = $a.attr("data-href-id");
+                    if ($a.hasClass("ref_mark")) {
+                        // ポップアップでマーク付きの場合は親コメントなので、その旨を表示する.
+                        return $("<div>参照先親投稿です</div>");
+                    }
+                    if (refPid) {
+                        let $post = $(`#${refPid}`).clone();
+                        appendScrollOwn($post);
+                        if ($post.length == 0) {
+                            // ページ上にない.fetchする.
+                            let url = threadUrl + refPid;
+                            $post = await fetchHtml(url, { cache: "force-cache" })
+                                .then(doc => $(doc).find("div.thread div.post:first").clone())
+                                .then($p => processPost($p));
+                        }
+                        $post = processPopupPost($post);
+                        return {
+                            inner: $post,
+                            option: _.settings.app.get().pinnablePopup ? { title: `>>${refPid}`, pinnable: true, fixable: true } : {}
+                        };
+                    }
+                }, false));
+            if (_.settings.app.get().popupOnClick) {
+                $("body").on("click", selector, createOnPinPopupHandler());
+            }
+            $("body").on("mouseout", selector, createOnPopupLinkMouseOutHandler());
         };
+        refLinkPopup("div.message a.reply_link", "ref_popup");
 
-        $("body").on("mouseover", "div.message.abone span.abone_message a", popupNgHandler("abone_popup", true));
-        $("body").on("click", "div.message.abone span.abone_message a", popupNgHandler("abone_popup", false));
-        $("body").on("mouseout", "div.message.abone span.abone_message a", createOnPopupLinkMouseOutHandler());
+        $a => { return { top: $a.offset().top - 15, left: $a.offset().left + $a.width() } }
+        // あぼーんのポップアップ処理.
+        let ngPopup = (selector, popupClass) => {
+            let popupNgHandler = (popupClass, delay) => {
+                return createOnShowPopupHandler(popupClass,
+                    async $a => {
+                        let $inner = $a.closest("div.message.abone").clone().removeClass("abone");
+                        $inner.find("span.abone_message").remove();
+                        $inner.find("span").removeClass("abone");
+                        return $inner;
+                    }, delay, $a => $a.offset());
+            };
+            if (!_.settings.app.get().dontPopupMouseoverNgMsg && !_.settings.app.get().popupOnClick) {
+                $("body").on("mouseover", selector, popupNgHandler(popupClass, true));
+            }
+            $("body").on("click", selector, popupNgHandler(popupClass, false));
+            $("body").on("mouseout", selector, createOnPopupLinkMouseOutHandler());
+        };
+        ngPopup("div.message.abone span.abone_message a", "abone_popup")
 
         // 別スレへのリンクのポップアップ処理.
-        $("body").on("mouseover", "div.message a.ref_another_thread", createOnShowPopupHandler("another_thread_popup", $a => { return { top: $a.offset().top - 15, left: $a.offset().left + $a.width() } },
-            $a => {
-                let url = new URL($a.attr("data-href-thread") + "1");
-                if (url.protocol != location.protocol) {
-                    url.protocol = location.protocol;
-                }
-                return fetchHtml(url, { cache: "force-cache" })
-                    .then(doc => $(doc).find("div.thread div.post:first").clone())
-                    .then($p => {
-                        if ($p.length == 0) {
-                            return;
-                        }
-                        $p.find("a.reply_link").contents().unwrap();
-                        $p.find("a.reply_link").remove();
-                        return initializePost($p);
-                    });
-            }, true));
-        $("body").on("mouseout", "div.message a.ref_another_thread", createOnPopupLinkMouseOutHandler());
+        let refLinkAnotherThreadPopup = (selector, popupClass) => {
+            if (_.settings.app.get().popupOnClick) {
+                return;
+            }
+            $("body").on("mouseover", selector, createOnShowPopupHandler(popupClass,
+                $a => {
+                    let url = new URL($a.attr("data-href-thread") + "1");
+                    if (url.protocol != location.protocol) {
+                        url.protocol = location.protocol;
+                    }
+                    return fetchHtml(url, { cache: "force-cache" })
+                        .then(doc => $(doc).find("div.thread div.post:first").clone())
+                        .then($p => {
+                            if ($p.length == 0) {
+                                return;
+                            }
+                            $p.find("a.reply_link").contents().unwrap();
+                            $p.find("a.reply_link").remove();
+                            return initializePost($p);
+                        });
+                }, true));
+            $("body").on("mouseout", selector, createOnPopupLinkMouseOutHandler());
+        }
+        refLinkAnotherThreadPopup("div.message a.ref_another_thread", "another_thread_popup");
 
-        // 投稿データのポップアップ前処理. 不要なデータを削除する. (ポップアップ制御のクラスや属性等)
+        // 投稿データのポップアップ前処理. 不要なデータを削除する. (ポップアップ制御のクラスや属性や一時的なクラス等)
         let processPopupPost = ($obj) => {
             $obj.find("div.post[id]").addBack("div.post[id]").removeAttr("id");
             $obj.find("[data-popup-id]").addBack("[data-popup-id]").removeAttr("data-popup-id");
             $obj.find(".mouse_hover").addBack(".mouse_hover").removeClass("mouse_hover");
+            $obj.find(".post.emphasis").addBack(".post.emphasis").removeClass("emphasis");
+            $obj.find(".post.new").addBack(".post.new").removeClass("new");
+            $obj.find(".popupping").addBack(".popupping").removeClass("popupping");
             return $obj;
         };
 
         let closestPost = ($a) => $a.closest("div.post");
 
-        let removeAllPopup = () => {
+        // ポップアップを削除.
+        let removeAllPopup = (pinned = false, filter = undefined) => {
             Object.keys(timeoutHandles).forEach(k => {
                 clearTimeout(timeoutHandles[k]);
                 timeoutHandles[k] = undefined;
             });
-            popupStack.forEach(p => $(`#${p}`).remove());
+            let $popups = $("div.popup-container");
+            if (!pinned) {
+                $popups = $popups.not("pinned");
+            }
+            if (filter) {
+                $popups = $popups.filter(filter);
+            }
+            $popups.map((i, e) => $(e).attr("id")).toArray().forEach(id => removePopup(id, pinned));
+        };
+        let removePopup = (popupId, pinned = false) => {
+            if (popupId && (pinned || !$(`#${popupId}`).hasClass("pinned"))) {
+                // Pinされているものは残す. stack上から消えても残す.
+                $(`[data-popup-id="${popupId}"]`).removeClass("popupping").removeAttr("data-popup-id");
+                $(`#${popupId}`).remove();
+            }
         };
 
-        let replaceAllPopup = () => {
-            popupStack.forEach(p => {
-                let $popup = $(`#${p}`);
+        // ポップアップを再配置.
+        let replaceAllPopup = () => $("div.popup-container").each((i, e) => replacePopup($(e, true)));
+        let replacePopup = ($popup, fixed = false) => {
+            if ($popup && $popup.length > 0) {
                 let scrollTop = $popup.scrollTop();
                 let scrollLeft = $popup.scrollLeft();
                 $popup.data("size-func")?.();
-                $popup.data("place-func")?.();
+                if (fixed || !$popup.hasClass("fixed")) {
+                    $popup.data("place-func")?.();
+                }
                 $popup.scrollTop(scrollTop);
                 $popup.scrollLeft(scrollLeft);
-            });
+            }
         }
 
         // NGの追加/削除イベント
@@ -1002,7 +1222,7 @@
                     await handler(word);
                     document.getSelection().removeAllRanges();
                     removeAllPopup();
-                    processAllThread();
+                    processAllPosts();
                 }
             }
         }
@@ -1027,7 +1247,7 @@
             document.getSelection().removeAllRanges();
             setTimeout(() => {
                 removeAllPopup();
-                processAllThread();
+                processAllPosts();
             }, 0);
         });
 
@@ -1167,8 +1387,8 @@
         // 新着マーク削除.
         let removeNewPostMark = () => {
             removeNewPostMarkTimeout = clearTimeout(removeNewPostMarkTimeout);
-            $("div.post.new").addClass("removingnew");
-            setTimeout(() => $("div.post.new.removingnew").removeClass("removingnew").removeClass("new"), 3000);
+            $("div.post.new").addClass("removing");
+            setTimeout(() => $("div.post.new.removing").removeClass("removing").removeClass("new"), 3000);
         }
 
         // 新着レスの取得と追加処理.
@@ -1518,7 +1738,7 @@
         $(window).on('beforeunload', () => sessionStorage.setItem("unloadIndex", binarySearch($(".thread .post").toArray().map(p => $(p)), viewCenterPostComparer())));
 
         // 全Postに対して処理をする.
-        let initProcessPostsPromise = processAllThread(true);
+        let initProcessPostsPromise = processAllPosts(true);
     };
 
     await _.init();

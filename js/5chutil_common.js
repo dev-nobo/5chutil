@@ -154,13 +154,7 @@ var GOCHUTIL = GOCHUTIL || {};
     // div.ad--bottom, div.ad--right > *, div#banner, div[id^="horizontalbanners"], div#AD_e4940a622def4b87c34cd9b928866823_1, div#ads-ADU-DYQA7DD0, div.footer.push + div, iframe[src$="://cache.send.microad.jp/js/cookie_loader.html"]
     let defaultDeleteSelectors = ``;
 
-    let defaultCustomCss = `div.popup.list_popup { line-height: 15px; }
-div.popup.list_popup span { font-size: 13px; }
-div.popup.list_popup span.control_link { font-size: 12px; }
-div.popup.list_popup div.meta { white-space: nowrap; }
-div.popup.list_popup div.post { margin-bottom: 4px; padding:4px; }
-div.popup.list_popup div.post div.message { padding: 2px 0 1px; }
-`;
+    let defaultCustomCss = ``;
 
     // ==================
 
@@ -172,6 +166,10 @@ div.popup.list_popup div.post div.message { padding: 2px 0 1px; }
         autoEmbedContents: false,
         blurImagePopup: false,
         expandRefPosts: true,
+        popupOnClick: false,
+        closeOtherPopupOnClick: false,
+        pinnablePopup: true,
+        fixOnPinned: true,
         idManyCount: 5,
         koro2ManyCount: 5,
         ipManyCount: 5,

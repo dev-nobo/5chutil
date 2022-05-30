@@ -39,9 +39,17 @@ div.message span.ng_word_wrapper {
     color: #cc0000;
 }
 
-.popup_mark {
+.ref_mark {
     background-color: #ffff88;
     color: #cc0000;
+}
+
+a {
+    transition: background-color .3s ease-out;
+}
+
+a.popupping {
+    background-color: #ccccff;
 }
 
 div.message a.thumbnail_gochutil, div.message div.thumb5ch.gochutil {
@@ -138,21 +146,90 @@ div.message span.embed:hover {
 }
 
 div.popup {
-    overflow: auto;
     border: 1px solid rgb(51, 51, 51);
     position: absolute;
     background-color: rgb(239, 239, 239);
-    display: block;
-    padding: 5px;
+    padding: 3px;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
 }
+
+div.popup.resizeable {
+    resize: both;
+}
+
+div.popup .innerContainer {
+    overflow: auto;
+    height: 100%;
+}
+
 div.popup div.post {
     padding: 0;
     margin: 0;
 }
 
+div.popup div.popup_header {
+    background-color: #ddd;
+    color: black;
+    line-height: 15px;
+    font-size: 13px;
+    font-family: monospace;
+    transition: all 0.5s 0s ease;
+}
+
+div.popup.pinned div.popup_header {
+    background-color: #ccf;
+    color: black;
+}
+
+div.popup.moveable div.popup_header {
+    cursor: grab;
+}
+
+div.popup.moveable.moving div.popup_header {
+    cursor: grabbing;
+}
+
+div.popup div.popup_header .left {
+    text-align: left;
+    float: left;
+    display: block;
+}
+
+div.popup div.popup_header .right {
+    text-align: right;
+    display: block;
+}
+
+div.list_container {
+    line-height: 15px;
+}
+
+div.list_container span {
+    font-size: 13px;
+}
+
+div.list_container span.control_link {
+    font-size: 12px;
+}
+
+div.list_container div.meta {
+    white-space: nowrap;
+}
+
+div.list_container div.post {
+    margin-bottom: 4px;
+    padding: 4px;
+}
+
+div.list_container div.post div.message {
+    padding: 2px 0 1px;
+}
+
 div.post div.childcontents {
     margin: 5px 0px 5px;
-    display:flex;
+    display: flex;
 }
 
 div.childcontents div.indent {
@@ -282,9 +359,33 @@ div.new::after {
     animation: animateGlow 1.25s linear infinite, animateGlowIn 3s linear;
 }
 
-div.new.removingnew::after {
+div.new.removing::after {
     filter: blur(0px);
     animation: animateGlow 1.25s linear infinite, animateGlowOut 3s linear;
+}
+
+div.emphasis {
+    position: relative;
+}
+
+div.emphasis::after {
+    position: absolute;
+    content: "";
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: -1;
+    height: 100%;
+    width: 100%;
+    filter: blur(15px);
+    background: linear-gradient(to left, #3f3f3f, #464646, #666666, #808080, #adadad, #808080, #666666, #464646, #3f3f3f);
+    background-size: 200% 200%;
+    animation: animateGlow 0.75s linear infinite, animateGlowIn 0.5s linear;
+}
+
+div.emphasis.removing::after {
+    filter: blur(0px);
+    animation: animateGlow 0.75s linear infinite, animateGlowOut 0.5s linear;
 }
 
 div.meta span.back-links.gochutil {

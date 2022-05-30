@@ -19,6 +19,10 @@
         initializeCheckboxSetting("autoEmbedContents");
         initializeCheckboxSetting("blurImagePopup");
         initializeCheckboxSetting("expandRefPosts");
+        initializeCheckboxSetting("popupOnClick");
+        initializeCheckboxSetting("closeOtherPopupOnClick");
+        initializeCheckboxSetting("pinnablePopup");
+        initializeCheckboxSetting("fixOnPinned");
 
         let initializeNumberSetting = (propName) => {
             let $input = $(`input.app.${propName}`);
