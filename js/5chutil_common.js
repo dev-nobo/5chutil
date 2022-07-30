@@ -72,16 +72,19 @@ var GOCHUTIL = GOCHUTIL || {};
         this.checkSet = new Set(this.setting.map(e => this.toSetElement(e)));
     };
 
+    _.classes.arraySetting.prototype.save = async function () {
+        await _.classes.setting.prototype.save.call(this);
+        this.checkSet = new Set(this.setting.map(e => this.toSetElement(e)));
+    };
+
     _.classes.arraySetting.prototype.add = async function (val) {
         var ret = [];
         if (!val) {
             return ret;
         }
-        this.checkSet.add(this.toSetElement(val));
         this.setting.push(val);
         if (this.setting.length > this._maxSize) {
             ret = Array(this.setting.length - this._maxSize).fill().map(e => this.setting.shift());
-            ret.forEach(r => this.checkSet.delete(this.toSetElement(r)));
         }
         await this.save();
         return ret;
@@ -91,7 +94,6 @@ var GOCHUTIL = GOCHUTIL || {};
         if (!val) {
             return;
         }
-        this.checkSet.delete(this.toSetElement(val));
         this.setting = this.setting.filter(v => !this.compare(v, val));
         await this.save();
     };
@@ -113,6 +115,36 @@ var GOCHUTIL = GOCHUTIL || {};
 
     _.classes.arraySetting.prototype.replaceString = function (str, replacer) {
         return this.setting.reduce((p, c) => p.replaceAll(c, replacer(c)), str);
+    };
+
+    // ==================
+
+    let toArray = (f) => {
+        try { return [f()]; } catch (e) { return []; }
+    }
+
+    _.classes.regexSetting = function (key, initValue, maxSize = 100) {
+        _.classes.arraySetting.call(this, key, initValue, maxSize);
+        this.regexArray = this.setting.flatMap(e => toArray(() => new RegExp(e)));
+    };
+
+    _.classes.regexSetting.prototype = Object.create(_.classes.arraySetting.prototype);
+
+    _.classes.regexSetting.prototype.load = async function () {
+        await _.classes.arraySetting.prototype.load.call(this);
+        this.regexArray = this.setting.flatMap(e => toArray(() => new RegExp(e)));
+    };
+
+    _.classes.regexSetting.prototype.save = async function () {
+        await _.classes.arraySetting.prototype.save.call(this);
+        this.regexArray = this.setting.flatMap(e => toArray(() => new RegExp(e)));
+    };
+
+    _.classes.regexSetting.prototype.match = function (val) {
+        if (!val) {
+            return false;
+        }
+        return this.regexArray.some(r => r.test(val));
     };
 
     // ==================
@@ -187,7 +219,7 @@ var GOCHUTIL = GOCHUTIL || {};
         ng: {
             names: new _.classes.arraySetting("settings.ng.names", []),
             trips: new _.classes.arraySetting("settings.ng.trips", []),
-            slips: new _.classes.arraySetting("settings.ng.slips", []),
+            slips: new _.classes.regexSetting("settings.ng.slips", []),
             koro2s: new _.classes.arraySetting("settings.ng.korokoros", []),
             ips: new _.classes.arraySetting("settings.ng.ips", []),
             dateAndIDs: new _.classes.dateAndIDSetting("settings.ng.dateAndID", []),

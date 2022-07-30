@@ -1,11 +1,14 @@
 // ==UserScript==
 // @name         5chutil
 // @namespace    5chutil
-// @version      0.1.1.15
+// @version      0.1.1.16
 // @description  5ch のスレッドページに NG や外部コンテンツ埋め込み等の便利な機能を追加する
 // @author       5chutil dev
 // @match        *://*.5ch.net/test/read.cgi/*
-// @grant        GM_getValue
+// @match        *://*.5ch.net/*/subback.html
+// @match        *://*.5ch.net/*/
+// @match        *://*.5ch.net/*/?*
+// @grant        GM_getValue1
 // @grant        GM_setValue
 // @grant        GM_listValues
 // @grant        GM_deleteValue
@@ -59,83 +62,145 @@ var GOCHUTIL = GOCHUTIL || {};
     //// 5chutil.css
     const gochutilcss = `
 :root {
-    --wait-animation-span: 10s;
-    --wait-appendnew-animation-span: 10s;
+    --gochutil-wait-animation-span: 10s;
+    --gochutil-wait-appendnew-animation-span: 10s;
 }
 
-div.message.abone span.abone {
+.gochutil.gochutiltop div.thread_list {
+    overflow-y: scroll;
+    resize: vertical;
+    height: 500px;
+    background: #BEB;
+}
+
+.gochutil.gochutiltop div.thread_list.noscroll {
+    overflow: visible;
+    resize:none;
+    height:auto;
+}
+
+.gochutil.gochutiltop div.thread_list table {
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.75em;
+    font-weight: 600;
+}
+
+.gochutil.gochutiltop div.thread_list table thead {
+    background-color: #555;
+    position: sticky;
+    top: 0;
+}
+
+.gochutil.gochutiltop div.thread_list table thead tr a {
+    color: #fff;
+}
+
+.gochutil.gochutiltop div.thread_list table thead tr {
+    z-index: 1;
+}
+
+.gochutil.gochutiltop div.thread_list table .number_cell {
+    text-align: right;
+}
+
+.gochutil.gochutiltop div.thread_list table th, .gochutil.gochutiltop div.thread_list table td {
+    border-bottom: 1px solid #aaa;
+    border-right: 1px solid #aaa;
+}
+
+.gochutil.gochutiltop div.thread_list table tr:first-child th, .gochutil.gochutiltop div.thread_list table tr:first-child td {
+    border-top: 1px solid #aaa;
+}
+
+.gochutil.gochutiltop div.thread_list table tr th:first-child, .gochutil.gochutiltop div.thread_list table tr td:first-child {
+    border-left: 1px solid #aaa;
+}
+
+.gochutil.gochutiltop table td {
+    background: #ccc;
+}
+
+.gochutil.gochutiltop table tr:nth-child(odd) td {
+    background: #fff;
+}
+
+
+.gochutil.gochutilthread div.message.abone span.abone {
     display: none;
 }
 
-div.message div#ng_word_control {
+.gochutil.gochutilthread div.message div#ng_word_control {
     float: right;
     margin-left: 10px;
 }
 
-span.control_link {
+.gochutil.gochutilthread span.control_link {
     font-size: 13px;
     font-family: monospace;
 }
 
-span.control_link a {
+.gochutil.gochutilthread span.control_link a {
     text-decoration: underline !important;
 }
 
-span.count_link.many a {
+.gochutil.gochutilthread span.count_link.many a {
     color: #bb2020;
 }
 
-span.mail {
+.gochutil.gochutilthread span.mail {
     font-weight: bold;
     margin-right: 5px;
 }
 
-div.message.abone span.abone_message a {
+.gochutil.gochutilthread div.message.abone span.abone_message a {
     font-weight: bold;
 }
 
-div.message span.ng_word_wrapper {
+.gochutil.gochutilthread div.message span.ng_word_wrapper {
     background-color: #ffff88;
     color: #cc0000;
 }
 
-.ref_mark {
+.gochutil.gochutilthread .ref_mark {
     background-color: #ffff88;
     color: #cc0000;
 }
 
-a {
+.gochutil.gochutilthread a {
     transition: background-color .3s ease-out;
 }
 
-a.popupping {
+.gochutil.gochutilthread a.popupping {
     background-color: #ccccff;
 }
 
-div.message a.thumbnail_gochutil, div.message div.thumb5ch.gochutil {
+.gochutil.gochutilthread div.message a.thumbnail_gochutil, .gochutil.gochutilthread div.message div.thumb5ch.gochutil {
     display: inline-block;
 }
 
-div.img_popup div.img_container {
+.gochutil.gochutilthread div.img_popup div.img_container {
     position: relative;
 }
 
-div.img_popup div.img_container img {
+.gochutil.gochutilthread div.img_popup div.img_container img {
     max-width: 800px;
     max-height: 600px;
     min-width: 250px;
     min-height: 150px;
+    transition: filter 0.5s ease;
+    filter: blur(0);
 }
 
-div.img_popup div.img_container.blur img {
+.gochutil.gochutilthread div.img_popup div.img_container.blur img {
     filter: blur(10px);
 }
 
-div.img_popup div.img_container div.remove_blur {
+.gochutil.gochutilthread div.img_popup div.img_container div.remove_blur {
     display: none;
 }
 
-div.img_popup div.img_container.blur div.remove_blur {
+.gochutil.gochutilthread div.img_popup div.img_container.blur div.remove_blur {
     position: absolute;
     display: block;
     top: 0;
@@ -158,7 +223,7 @@ div.img_popup div.img_container.blur div.remove_blur {
         -2px -2px 10px #555;
 }
 
-div.message span.embed {
+.gochutil.gochutilthread div.message span.embed {
     padding: 5px;
     display: inline-block;
     border: 1px solid #464646;
@@ -166,21 +231,21 @@ div.message span.embed {
     transition: background-color .3s ease-out;
 }
 
-div.message span.embed a {
+.gochutil.gochutilthread div.message span.embed a {
     color: #485269;
     text-decoration: none !important;
 }
 
-div.message span.embed:hover {
+.gochutil.gochutilthread div.message span.embed:hover {
     background-color: #eee;
 }
 
-.backgroundwidthprogress {
+.gochutil.gochutilthread .backgroundwidthprogress {
     position: relative;
     z-index: 0;
 }
 
-.backgroundwidthprogress::before {
+.gochutil.gochutilthread .backgroundwidthprogress::before {
     position: absolute;
     content: "";
     top: 0;
@@ -192,7 +257,7 @@ div.message span.embed:hover {
     background-color: transparent;
 }
 
-.backgroundwidthprogress::after {
+.gochutil.gochutilthread .backgroundwidthprogress::after {
     position: absolute;
     content: "";
     top: 0;
@@ -202,10 +267,10 @@ div.message span.embed:hover {
     height: 100%;
     width: 0%;
     background-color: #aaaaaa;
-    animation: width 1s forwards linear;
+    animation: gochutilWidth 1s forwards linear;
 }
 
-div.popup {
+.gochutil.gochutilthread div.popup {
     border: 1px solid rgb(51, 51, 51);
     position: absolute;
     background-color: rgb(239, 239, 239);
@@ -215,21 +280,21 @@ div.popup {
     overflow: auto;
 }
 
-div.popup.resizeable {
+.gochutil.gochutilthread div.popup.resizeable {
     resize: both;
 }
 
-div.popup .innerContainer {
+.gochutil.gochutilthread div.popup .innerContainer {
     overflow: auto;
     height: 100%;
 }
 
-div.popup div.post {
+.gochutil.gochutilthread div.popup div.post {
     padding: 0;
     margin: 0;
 }
 
-div.popup div.popup_header {
+.gochutil.gochutilthread div.popup div.popup_header {
     background-color: #ddd;
     color: black;
     line-height: 15px;
@@ -238,73 +303,78 @@ div.popup div.popup_header {
     transition: all 0.5s 0s ease;
 }
 
-div.popup.pinned div.popup_header {
+.gochutil.gochutilthread div.popup.pinned div.popup_header {
     background-color: #ccf;
     color: black;
 }
 
-div.popup.moveable div.popup_header {
+.gochutil.gochutilthread div.popup.moveable div.popup_header {
     cursor: grab;
 }
 
-div.popup.moveable.moving div.popup_header {
+.gochutil.gochutilthread div.popup.moveable.moving div.popup_header {
     cursor: grabbing;
 }
 
-div.popup div.popup_header .left {
+.gochutil.gochutilthread div.popup div.popup_header .left {
     text-align: left;
     float: left;
     display: block;
 }
 
-div.popup div.popup_header .right {
+.gochutil.gochutilthread div.popup div.popup_header .right {
     text-align: right;
     display: block;
 }
 
-div.list_container {
+.gochutil.gochutilthread div.popup .ng_match_msg {
+    color: #bb2020;
+    font-size: smaller;
+}
+
+.gochutil.gochutilthread div.list_container {
     line-height: 15px;
 }
 
-div.list_container span {
+.gochutil.gochutilthread div.list_container span {
     font-size: 13px;
 }
 
-div.list_container span.control_link {
+.gochutil.gochutilthread div.list_container span.control_link {
     font-size: 12px;
 }
 
-div.list_container div.meta {
+.gochutil.gochutilthread div.list_container div.meta {
     white-space: nowrap;
 }
 
-div.list_container div.post {
+.gochutil.gochutilthread div.list_container div.post {
     margin-bottom: 4px;
     padding: 4px;
 }
 
-div.list_container div.post div.message {
+.gochutil.gochutilthread div.list_container div.post div.message {
     padding: 2px 0 1px;
 }
 
-div.post div.childcontents {
+.gochutil.gochutilthread div.post div.childcontents {
     margin: 5px 0px 5px;
     display: flex;
 }
 
-div.childcontents div.indent {
+.gochutil.gochutilthread div.childcontents div.indent {
     width: 40px;
     vertical-align: top;
     display: inline-block;
 }
 
-div.childcontents div.childposts {
+.gochutil.gochutilthread div.childcontents div.childposts {
     display: inline-block;
     padding-left: 5px;
     border-left: double 4px #aaa;
 }
 
-div.processing_container {
+.gochutil.gochutilthread div.processing_container {
     position: fixed;
     top: 0;
     left: 0;
@@ -319,7 +389,7 @@ div.processing_container {
     background-color: rgba(0, 0, 0, 0.2);
 }
 
-div.processing_container div {
+.gochutil.gochutilthread div.processing_container div {
     margin: 0;
     z-index: 22;
     background-color: #dddddd;
@@ -332,20 +402,20 @@ div.processing_container div {
     justify-content: center;
 }
 
-div.processing_container div span.message {
+.gochutil.gochutilthread div.processing_container div span.message {
     padding: 0 0 0 45px;
     height: 48px;
     font-size: 36px;
 }
 
-span.appendnewposts {
+.gochutil.gochutilthread span.appendnewposts {
     margin-left: 10px;
     background-color: #fff;
     transition: background-color .3s ease-out;
     display: inline-block
 }
 
-span.appendnewposts a {
+.gochutil.gochutilthread span.appendnewposts a {
     color: #485269;
     display: inline-block;
     width: 200px;
@@ -353,58 +423,58 @@ span.appendnewposts a {
     border: 1px solid #333;
 }
 
-span.appendnewposts:hover {
+.gochutil.gochutilthread span.appendnewposts:hover {
     background-color: #eee;
 }
 
-span.appendnewposts.disabled {
+.gochutil.gochutilthread span.appendnewposts.disabled {
     background-color: #aaa;
     transition: none;
 }
 
-span.appendnewposts.disabled:hover {
+.gochutil.gochutilthread span.appendnewposts.disabled:hover {
     background-color: #aaa;
 }
 
-span.appendnewposts.disabled_exit {
+.gochutil.gochutilthread span.appendnewposts.disabled_exit {
     background-color: #fff;
     transition: none;
 }
 
-span.appendnewposts.disabled a.backgroundwidthprogress::after {
+.gochutil.gochutilthread span.appendnewposts.disabled a.backgroundwidthprogress::after {
     background-color: #fff;
-    animation-duration: calc(var(--wait-appendnew-animation-span)) !important;
+    animation-duration: calc(var(--gochutil-wait-appendnew-animation-span)) !important;
 }
 
-span.autoload_newposts {
+.gochutil.gochutilthread span.autoload_newposts {
     margin-left: 10px;
     padding: 10px;
     border: 1px solid #333;
     background-color: #fff;
 }
 
-span.autoload_newposts.backgroundwidthprogress {
+.gochutil.gochutilthread span.autoload_newposts.backgroundwidthprogress {
     background-color: transparent;
 }
 
-span.autoload_newposts.backgroundwidthprogress::before {
+.gochutil.gochutilthread span.autoload_newposts.backgroundwidthprogress::before {
     background-color: #ddd;
 }
 
-span.autoload_newposts.backgroundwidthprogress::after {
+.gochutil.gochutilthread span.autoload_newposts.backgroundwidthprogress::after {
     background-color: #fff;
-    animation-duration: calc(var(--wait-animation-span));
+    animation-duration: calc(var(--gochutil-wait-animation-span));
 }
 
-div.newposts span.error_msg {
+.gochutil.gochutilthread div.newposts span.error_msg {
     color: #bb2020;
 }
 
-div.new {
+.gochutil.gochutilthread div.new {
     position: relative;
 }
 
-div.new::after {
+.gochutil.gochutilthread div.new::after {
     position: absolute;
     content: "";
     top: 0;
@@ -416,19 +486,19 @@ div.new::after {
     filter: blur(15px);
     background: linear-gradient(to left, #3f3f3f, #464646, #666666, #808080, #adadad, #808080, #666666, #464646, #3f3f3f);
     background-size: 200% 200%;
-    animation: animateGlow 1.25s linear infinite, animateGlowIn 3s linear;
+    animation: gochutilGlow 1.25s linear infinite, gochutilGlowIn 3s linear;
 }
 
-div.new.removing::after {
+.gochutil.gochutilthread div.new.removing::after {
     filter: blur(0px);
-    animation: animateGlow 1.25s linear infinite, animateGlowOut 3s linear;
+    animation: gochutilGlow 1.25s linear infinite, gochutilGlowOut 3s linear;
 }
 
-div.emphasis {
+.gochutil.gochutilthread div.emphasis {
     position: relative;
 }
 
-div.emphasis::after {
+.gochutil.gochutilthread div.emphasis::after {
     position: absolute;
     content: "";
     top: 0;
@@ -440,23 +510,23 @@ div.emphasis::after {
     filter: blur(15px);
     background: linear-gradient(to left, #3f3f3f, #464646, #666666, #808080, #adadad, #808080, #666666, #464646, #3f3f3f);
     background-size: 200% 200%;
-    animation: animateGlow 0.75s linear infinite, animateGlowIn 0.5s linear;
+    animation: gochutilGlow 0.75s linear infinite, gochutilGlowIn 0.5s linear;
 }
 
-div.emphasis.removing::after {
+.gochutil.gochutilthread div.emphasis.removing::after {
     filter: blur(0px);
-    animation: animateGlow 0.75s linear infinite, animateGlowOut 0.5s linear;
+    animation: gochutilGlow 0.75s linear infinite, gochutilGlowOut 0.5s linear;
 }
 
-div.meta span.back-links.gochutil {
+.gochutil.gochutilthread div.meta span.back-links.gochutil {
     display: inline-block;
 }
 
-.loader {
+.gochutil.gochutilthread .loader {
     position: relative;
 }
 
-.loader::after {
+.gochutil.gochutilthread .loader::after {
     content: "";
     font-size: 8px;
     left: 0;
@@ -468,11 +538,27 @@ div.meta span.back-links.gochutil {
     height: 10px;
     border-radius: 50%;
     position: absolute;
-    animation: load5 1.1s infinite ease;
+    animation: gochutilLoad 1.1s infinite ease;
     transform: translateZ(0);
 }
 
-@keyframes load5 {
+.gochutil.gochutilthread .fade_in {
+    animation: gochutilFadeIn 10s ease-out 1 forwards;
+}
+
+.gochutil.gochutilthread .fade_out {
+    animation: gochutilFadeOut 0.2s ease-in 1 forwards;
+}
+
+.gochutil.gochutilthread .slide_in {
+    animation: gochutilSlideIn 0.2s ease-out 1 forwards;
+}
+
+.gochutil.gochutilthread .slide_out {
+    animation: gochutilSlideOut 0.2s ease-in 1 forwards;
+}
+
+@keyframes gochutilLoad {
 
     0%,
     100% {
@@ -508,7 +594,7 @@ div.meta span.back-links.gochutil {
     }
 }
 
-@keyframes animateGlow {
+@keyframes gochutilGlow {
     0% {
         background-position: 0% 50%;
     }
@@ -518,7 +604,7 @@ div.meta span.back-links.gochutil {
     }
 }
 
-@keyframes animateGlowIn {
+@keyframes gochutilGlowIn {
     0% {
         filter: blur(0px);
     }
@@ -528,7 +614,7 @@ div.meta span.back-links.gochutil {
     }
 }
 
-@keyframes animateGlowOut {
+@keyframes gochutilGlowOut {
     0% {
         filter: blur(15px);
     }
@@ -538,13 +624,37 @@ div.meta span.back-links.gochutil {
     }
 }
 
-@keyframes width {
+@keyframes gochutilWidth {
     0% {
         width: 0%;
     }
 
     100% {
         width: 100%;
+    }
+}
+
+@keyframes gochutilSlideIn {
+    0% {
+        transform: translateX(30px);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes gochutilSlideOut {
+    0% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateX(30px);
+        opacity: 0;
     }
 }
 `;
@@ -655,6 +765,25 @@ div.meta span.back-links.gochutil {
                     </div>
                     <div>
                         <span class="notes">※最大<span class="ng ip max"></span>件まで、超過登録時に古いものから削除されます</span>
+                    </div>
+                </form>
+            </section>
+            <h3>NG SLIP Regex</h3>
+            <section>
+                <form>
+                    <div>
+                        <select class="ng slip" multiple>
+                        </select>
+                    </div>
+                    <div>
+                        <input type="text" class="ng slip input" /><button type="button" class="ng slip add">追加</button>
+                    </div>
+                    <div>
+                        <button type="button" class="ng slip remove">削除</button>&nbsp;<button type="button" class="ng slip clear">クリア</button>
+                    </div>
+                    <div>
+                        <span class="notes">正規表現でマッチングされます<br><span style="font-size: smaller; color:#555;">(括弧なしで <span style="font-family:monospace; color:blue;">ﾜｯﾁｮｲ XXXX-YYYY [111.222.111.222]</span> のような文字列とマッチング)</span></span><br/>
+                        <span class="notes">※最大<span class="ng slip max"></span>件まで、超過登録時に古いものから削除されます</span>
                     </div>
                 </form>
             </section>
@@ -809,13 +938,14 @@ div.meta span.back-links.gochutil {
             $(`span.ng.${className}.max`).text(maxSize);
         }
 
-        let wordValueToOpt = v => $(`<option data-word="${v}">${v}</option>`);
-        initialiezeNG("name", () => _.settings.ng.names.list(), v => $(`<option>${v}</option>`), v => _.settings.ng.names.set(v), _.settings.ng.names.maxSize());
-        initialiezeNG("trip", () => _.settings.ng.trips.list(), v => $(`<option>${v}</option>`), v => _.settings.ng.trips.set(v), _.settings.ng.trips.maxSize());
-        initialiezeNG("koro2", () => _.settings.ng.koro2s.list(), v => $(`<option>${v}</option>`), v => _.settings.ng.koro2s.set(v), _.settings.ng.koro2s.maxSize());
-        initialiezeNG("ip", () => _.settings.ng.ips.list(), v => $(`<option>${v}</option>`), v => _.settings.ng.ips.set(v), _.settings.ng.ips.maxSize());
+        let valueToOpt = v => $(`<option data-text="${v}">${v}</option>`);
+        initialiezeNG("name", () => _.settings.ng.names.list(), valueToOpt, v => _.settings.ng.names.set(v), _.settings.ng.names.maxSize());
+        initialiezeNG("trip", () => _.settings.ng.trips.list(), valueToOpt, v => _.settings.ng.trips.set(v), _.settings.ng.trips.maxSize());
+        initialiezeNG("koro2", () => _.settings.ng.koro2s.list(), valueToOpt, v => _.settings.ng.koro2s.set(v), _.settings.ng.koro2s.maxSize());
+        initialiezeNG("ip", () => _.settings.ng.ips.list(), valueToOpt, v => _.settings.ng.ips.set(v), _.settings.ng.ips.maxSize());
+        initialiezeNG("slip", () => _.settings.ng.slips.list(), valueToOpt, v => _.settings.ng.slips.set(v), _.settings.ng.slips.maxSize());
         initialiezeNG("dateAndID", () => _.settings.ng.dateAndIDs.list(), v => $(`<option data-date="${v.date}" data-uid="${v.id}" >Date:${v.date}&nbsp;|&nbsp;ID:${v.id}</option>`), v => _.settings.ng.dateAndIDs.set(v), _.settings.ng.dateAndIDs.maxSize());
-        initialiezeNG("word", () => _.settings.ng.words.list(), wordValueToOpt, v => _.settings.ng.words.set(v), _.settings.ng.words.maxSize());
+        initialiezeNG("word", () => _.settings.ng.words.list(), valueToOpt, v => _.settings.ng.words.set(v), _.settings.ng.words.maxSize());
 
         $("button.ng.dateAndID.select").off("click");
         $("button.ng.dateAndID.select").on("click", function () {
@@ -846,9 +976,31 @@ div.meta span.back-links.gochutil {
             } else {
                 $("select.ng.word").append(vToOption(word, wordValueToOpt));
                 let del = await _.settings.ng.words.add(word);
-                del.forEach(d => $(`option[data-word = "${d}"]`).remove());
+                del.forEach(d => $(`option[data-text = "${d}"]`).remove());
                 $("input.ng.word.input").val("");
                 $("input.ng.word.input").trigger("change");
+            }
+        });
+
+        $("button.ng.slip.add").off("click");
+        $("button.ng.slip.add").on("click", async function () {
+            let slip = $("input.ng.slip.input").val();
+            if (!slip) {
+                window.alert("データを入力してください。");
+            } else if (slip && _.settings.ng.slips.contains(slip)) {
+                window.alert("登録済みです。");
+            } else {
+                try {
+                    new RegExp(slip);
+                    $("select.ng.slip").append(`<option>${slip}</option>`);
+                    let del = await _.settings.ng.slips.add(slip);
+                    del.forEach(d => $(`option[data-text = "${d}"]`).remove());
+                    $("input.ng.slip.input").val("");
+                    $("input.ng.slip.input").trigger("change");
+                } catch (e) {
+                    window.alert("正規表現として不正です。");
+                    return;
+                }
             }
         });
     };
@@ -1155,16 +1307,19 @@ var GOCHUTIL = GOCHUTIL || {};
         this.checkSet = new Set(this.setting.map(e => this.toSetElement(e)));
     };
 
+    _.classes.arraySetting.prototype.save = async function () {
+        await _.classes.setting.prototype.save.call(this);
+        this.checkSet = new Set(this.setting.map(e => this.toSetElement(e)));
+    };
+
     _.classes.arraySetting.prototype.add = async function (val) {
         var ret = [];
         if (!val) {
             return ret;
         }
-        this.checkSet.add(this.toSetElement(val));
         this.setting.push(val);
         if (this.setting.length > this._maxSize) {
             ret = Array(this.setting.length - this._maxSize).fill().map(e => this.setting.shift());
-            ret.forEach(r => this.checkSet.delete(this.toSetElement(r)));
         }
         await this.save();
         return ret;
@@ -1174,7 +1329,6 @@ var GOCHUTIL = GOCHUTIL || {};
         if (!val) {
             return;
         }
-        this.checkSet.delete(this.toSetElement(val));
         this.setting = this.setting.filter(v => !this.compare(v, val));
         await this.save();
     };
@@ -1196,6 +1350,36 @@ var GOCHUTIL = GOCHUTIL || {};
 
     _.classes.arraySetting.prototype.replaceString = function (str, replacer) {
         return this.setting.reduce((p, c) => p.replaceAll(c, replacer(c)), str);
+    };
+
+    // ==================
+
+    let toArray = (f) => {
+        try { return [f()]; } catch (e) { return []; }
+    }
+
+    _.classes.regexSetting = function (key, initValue, maxSize = 100) {
+        _.classes.arraySetting.call(this, key, initValue, maxSize);
+        this.regexArray = this.setting.flatMap(e => toArray(() => new RegExp(e)));
+    };
+
+    _.classes.regexSetting.prototype = Object.create(_.classes.arraySetting.prototype);
+
+    _.classes.regexSetting.prototype.load = async function () {
+        await _.classes.arraySetting.prototype.load.call(this);
+        this.regexArray = this.setting.flatMap(e => toArray(() => new RegExp(e)));
+    };
+
+    _.classes.regexSetting.prototype.save = async function () {
+        await _.classes.arraySetting.prototype.save.call(this);
+        this.regexArray = this.setting.flatMap(e => toArray(() => new RegExp(e)));
+    };
+
+    _.classes.regexSetting.prototype.match = function (val) {
+        if (!val) {
+            return false;
+        }
+        return this.regexArray.some(r => r.test(val));
     };
 
     // ==================
@@ -1270,7 +1454,7 @@ var GOCHUTIL = GOCHUTIL || {};
         ng: {
             names: new _.classes.arraySetting("settings.ng.names", []),
             trips: new _.classes.arraySetting("settings.ng.trips", []),
-            slips: new _.classes.arraySetting("settings.ng.slips", []),
+            slips: new _.classes.regexSetting("settings.ng.slips", []),
             koro2s: new _.classes.arraySetting("settings.ng.korokoros", []),
             ips: new _.classes.arraySetting("settings.ng.ips", []),
             dateAndIDs: new _.classes.dateAndIDSetting("settings.ng.dateAndID", []),
@@ -1324,10 +1508,67 @@ var GOCHUTIL = GOCHUTIL || {};
     _.$ = _.$ || jQuery?.noConflict?.(true);
     let $ = _.$;
 
-    let main = () => {
+    let mTopUrl = window.location.href.match(/https?:\/\/([^./]+?)\.5ch\.net\/([^/]+?)\/(\?.*|)$/);
+    let mSubbackUrl = window.location.href.match(/https?:\/\/([^./]+?)\.5ch\.net\/([^/]+?)\/subback.html/);
+    let mThreadUrl = window.location.href.match(/https?:\/\/([^./]+?)\.5ch\.net\/test\/read.cgi\/([^/]+)\/[0-9]{10}.*/);
+    let getGroup = idx => [mTopUrl, mSubbackUrl, mThreadUrl].find(m => m)?.[idx];
+    let subDomain = getGroup(1);
+    let boardId = getGroup(2);
+    let threadId = mThreadUrl && mThreadUrl[3];
+
+    let subbackUrl = `${location.origin}/${boardId}/subback.html`;
+
+    // データのフェッチ.
+    let fetchHtml = (url, option) => {
+        return fetchInner(url, option)
+            .then(response => response.arrayBuffer())
+            .then(ab => new TextDecoder(document.characterSet).decode(ab))
+            .catch(err => {
+                if (err.httpStatus != 500) {
+                    // データなしの場合500が返ってくるので、無視.
+                    throw err;
+                }
+            })
+            .then(html => {
+                let parser = new DOMParser();
+                return parser.parseFromString(html, "text/html");
+            });
+    };
+
+    let fetchInner = (url, option) => {
+        return fetch(url, option)
+            .then(response => {
+                if (response.status == 200) {
+                    return response;
+                } else {
+                    let err = new Error(`fetch response url:${response.url} code:${response.status}`);
+                    err.httpStatus = response.status;
+                    throw err;
+                }
+            });
+    }
+
+    let fetchDataUrl = (url) => fetchInner(url).then(response => response.blob()).then(blob => blobToDataUrl(blob));
+
+    let blobToBase64 = async (blob) => {
+        let dataUrl = await blobToDataUrl(blob);
+        return dataUrl.substr(dataUrl.indexOf(',') + 1);
+    };
+
+    let blobToDataUrl = (blob) => {
+        return new Promise((resolve, reject) => {
+            let r = new FileReader();
+            r.onload = () => resolve(r.result);
+            r.onerror = (e) => reject(new Error("fail to convert base64"));
+            r.onabort = (e) => reject(new Error("fail to convert base64"));
+            r.readAsDataURL(blob);
+        });
+    };
+
+    let thread = () => {
         const rName = /^<b>(.*?) *<\/b>/;
         const rTrip = /(◆[./0-9A-Za-z]{8,12})/;
-        const rSlip = /(\(.+? ([*A-Za-z0-9+/]{4}-[*A-Za-z0-9+/=]{4}).*?\))/;
+        const rSlip = /\((.+? ([*A-Za-z0-9+/]{4}-[*A-Za-z0-9+/=]{4}).*?)\)/;
         const rKoro2 = /([*A-Za-z0-9+/]{4}-[*A-Za-z0-9+/=]{4})/;
         const rIp = /([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/;
         const rUid = /^ID:([^ ]{8,16})$/;
@@ -1336,6 +1577,8 @@ var GOCHUTIL = GOCHUTIL || {};
         const rAnotherThreadHref = new RegExp(`(https?:\/\/${location.hostname.replace(".", "\.")}\/test\/read.cgi\/[^/]+\/[0-9]+\/)$`);
 
         const threadUrl = ($("#zxcvtypo").val().startsWith("//") ? location.protocol : "") + $("#zxcvtypo").val() + "/";
+
+        $("html").addClass("gochutilthread");
 
         let postValueCache = {};
 
@@ -1427,13 +1670,19 @@ var GOCHUTIL = GOCHUTIL || {};
             return {
                 name: _.settings.ng.names.contains(value.name),
                 trip: _.settings.ng.trips.contains(value.trip),
-                slip: _.settings.ng.slips.contains(value.slip),
+                slip: _.settings.ng.slips.match(value.slip),
                 koro2: _.settings.ng.koro2s.contains(value.koro2),
                 ip: _.settings.ng.ips.contains(value.ip),
                 id: _.settings.ng.dateAndIDs.contains(value.dateAndID),
                 word: _.settings.ng.words.match(value.msg),
                 any: function () {
                     return Object.values(this).filter(e => typeof (e) === 'boolean').some(v => v);
+                },
+                message: function () {
+                    if (this.any()) {
+                        let ngMsgs = [[this.name, "Name"], [this.trip, "Trip"], [this.slip, "SLIP Regex"], [this.koro2, "Korokoro2(SLIP)"], [this.ip, "IP(SLIP)"], [this.id, "ID and Date"], [this.word, "Word"]];
+                        return ngMsgs.filter(v => v[0]).map(v => v[1]).join(", ") + "によりNG";
+                    }
                 }
             }
         }
@@ -1452,7 +1701,7 @@ var GOCHUTIL = GOCHUTIL || {};
             } else {
                 if ($span.children("a").length == 0) {
                     $span.html(`[<a href="javascript:void(0)">${text}</a>]`);
-                }else{
+                } else {
                     $span.children("a").text(`${text}`);
                 }
             }
@@ -1902,7 +2151,7 @@ var GOCHUTIL = GOCHUTIL || {};
             if (matchNG.any()) {
                 $post.addClass("abone");
                 $post.find(".meta,.message,.message span").addClass("abone");
-                $post.find(".message").append('<span class="abone_message"><a href="javascript:void(0)">あぼーん</a></span>');
+                $post.find(".message").append(`<span class="abone_message" data-ng-msg="${matchNG.message()}"><a href="javascript:void(0)">あぼーん</a></span>`);
             }
 
             // 制御用リンク追加.
@@ -2077,6 +2326,13 @@ var GOCHUTIL = GOCHUTIL || {};
             return $popup;
         }
 
+        let cssAnim = ($e, cls) => {
+            return new Promise((resolve, reject) => {
+                $e.addClass(cls);
+                setTimeout(() => resolve($e), 200);
+            });
+        };
+
         let getParentPopupId = popupId => $(`#${popupId}`).attr("data-parent-popup-id");
         let getCurrentPopupIdByElem = $e => $e.closest("div.popup-container").attr("id") ?? "popup-root";
         let getChildPopupIds = popupId => $(`[data-parent-popup-id="${popupId}"]`).map((i, e) => $(e).attr("id")).toArray() ?? [];
@@ -2164,6 +2420,12 @@ var GOCHUTIL = GOCHUTIL || {};
                     size();
                 }
                 place();
+
+                $popup.css("opacity", 0);
+                setTimeout(() => {
+                    $popup.css("opacity", "");
+                    cssAnim($popup, "slide_in").then($e => $e.removeClass("slide_in"));
+                }, 0);
             }
         }
 
@@ -2179,8 +2441,10 @@ var GOCHUTIL = GOCHUTIL || {};
                 if (popupId && $(`#${popupId}`).length > 0) {
                     return;
                 }
-                popupId = nextPopupId();
-                $a.attr("data-popup-id", popupId);
+                if (!popupId) {
+                    popupId = nextPopupId();
+                    $a.attr("data-popup-id", popupId);
+                }
 
                 if (showDelay) {
                     // タイマー設定して、1秒後にポップアップ処理.
@@ -2250,7 +2514,7 @@ var GOCHUTIL = GOCHUTIL || {};
         };
 
         // ポップアップを閉じれるかチェックして可能なら閉じる
-        let closePopupDelay = 250;
+        let closePopupDelay = 200;
         let checkAndClosePopup = (popupId) => {
             setTimeout(() => checkAndClosePopupInner(popupId), closePopupDelay);
         }
@@ -2431,6 +2695,7 @@ var GOCHUTIL = GOCHUTIL || {};
                         let $inner = $a.closest("div.message.abone").clone().removeClass("abone");
                         $inner.find("span.abone_message").remove();
                         $inner.find("span").removeClass("abone");
+                        $inner.append(`<br><span class="ng_match_msg">${$a.closest(".abone_message").attr("data-ng-msg")}</span>`)
                         return $inner;
                     }, delay, $a => $a.offset());
             };
@@ -2500,7 +2765,8 @@ var GOCHUTIL = GOCHUTIL || {};
             if (popupId && (pinned || !$(`#${popupId}`).hasClass("pinned"))) {
                 // Pinされているものは残す. stack上から消えても残す.
                 $(`[data-popup-id="${popupId}"]`).removeClass("popupping").removeAttr("data-popup-id");
-                $(`#${popupId}`).remove();
+                let $p = $(`#${popupId}`).removeAttr("id");
+                cssAnim($p, "slide_out").then($e => $e.remove());
             }
         };
 
@@ -2655,53 +2921,6 @@ var GOCHUTIL = GOCHUTIL || {};
         }
         controlReloadControler();
 
-        // データのフェッチ.
-        let fetchHtml = (url, option) => {
-            return fetchInner(url, option)
-                .then(response => response.arrayBuffer())
-                .then(ab => new TextDecoder(document.characterSet).decode(ab))
-                .catch(err => {
-                    if (err.httpStatus != 500) {
-                        // データなしの場合500が返ってくるので、無視.
-                        throw err;
-                    }
-                })
-                .then(html => {
-                    let parser = new DOMParser();
-                    return parser.parseFromString(html, "text/html");
-                });
-        };
-
-        let fetchInner = (url, option) => {
-            return fetch(url, option)
-                .then(response => {
-                    if (response.status == 200) {
-                        return response;
-                    } else {
-                        let err = new Error(`fetch response url:${response.url} code:${response.status}`);
-                        err.httpStatus = response.status;
-                        throw err;
-                    }
-                });
-        }
-
-        let fetchDataUrl = (url) => fetchInner(url).then(response => response.blob()).then(blob => blobToDataUrl(blob));
-
-        let blobToBase64 = async (blob) => {
-            let dataUrl = await blobToDataUrl(blob);
-            return dataUrl.substr(dataUrl.indexOf(',') + 1);
-        };
-
-        let blobToDataUrl = (blob) => {
-            return new Promise((resolve, reject) => {
-                let r = new FileReader();
-                r.onload = () => resolve(r.result);
-                r.onerror = (e) => reject(new Error("fail to convert base64"));
-                r.onabort = (e) => reject(new Error("fail to convert base64"));
-                r.readAsDataURL(blob);
-            });
-        };
-
         // 新着レスの取得と追加
         let fetching = false;
 
@@ -2775,7 +2994,7 @@ var GOCHUTIL = GOCHUTIL || {};
                     })
                     .finally(() => {
                         // 10 秒利用不可.
-                        document.documentElement.style.setProperty('--wait-appendnew-animation-span', `${waitSecondsForAppendNewPost}s`);
+                        document.documentElement.style.setProperty('--gochutil-wait-appendnew-animation-span', `${waitSecondsForAppendNewPost}s`);
                         $("div.newposts span.appendnewposts").addClass("disabled")
                         $("div.newposts span.appendnewposts a").addClass("backgroundwidthprogress");
                         setTimeout(() => {
@@ -2867,7 +3086,7 @@ var GOCHUTIL = GOCHUTIL || {};
                     $("div.newposts span.autoload_newposts").addClass("backgroundwidthprogress");
                 }, autoloadIntervalSeconds * 1000);
                 $("div.newposts span.autoload_newposts").removeClass("backgroundwidthprogress");
-                document.documentElement.style.setProperty('--wait-animation-span', `${autoloadIntervalSeconds}s`);
+                document.documentElement.style.setProperty('--gochutil-wait-animation-span', `${autoloadIntervalSeconds}s`);
                 reflow($("div.newposts span.autoload_newposts").get(0));
                 $("div.newposts span.autoload_newposts").addClass("backgroundwidthprogress");
             } else {
@@ -3002,7 +3221,7 @@ var GOCHUTIL = GOCHUTIL || {};
                 .filter($n => $n.attr("id") && getPostId($n));
             let relatedPostId = Array.from(new Set([].concat(addRefData($(addedPosts.map($n => $n.get(0))))).concat(removeRefData($(removedPosts.map($n => $n.get(0)))))));
             var $addedPosts = $(addedPosts.map($p => $p.get(0)));
-            $addedPosts.filter("div.post").addClass("new");
+            $addedPosts.filter("div.post").each((i, e) => cssAnim($(e), "slide_in").then($e => $e.removeClass("slide_in").addClass("new")));
             if (_.settings.app.get().newPostMarkDisplaySeconds > 0) {
                 removeNewPostMarkTimeout = setTimeout(() => removeNewPostMark(), _.settings.app.get().newPostMarkDisplaySeconds * 1000);
             }
@@ -3062,13 +3281,114 @@ var GOCHUTIL = GOCHUTIL || {};
         let initProcessPostsPromise = processAllPosts(true);
     };
 
+    let ikioi = (threadId, res) => Math.ceil(parseInt(res) / ((parseInt((new Date) / 1000) - parseInt(threadId)) / 86400));
+
+    let subback = () => {
+        $("a").map((i, e) => ({ mThreadId: $(e).attr("href").match(/(1[0-9]{9})\/l50/), mRes: $(e).text().match(/\(([0-9]{1,4})\)$/), $a: $(e) })).toArray()
+            .filter(e => e.mThreadId && e.mRes)
+            .forEach(e => e.$a.text(`${e.$a.text()} [勢い:${ikioi(e.mThreadId[1], e.mRes[1])}]`));
+    };
+
+    let top = () => {
+        fetchHtml(subbackUrl)
+            .then(doc => {
+                $("html").addClass("gochutiltop");
+                let $container = $(`<div class="thread_list"><table><thead></thead><tbody></tbody></table></div>`);
+                let $table = $container.find("table");
+                let $thead = $table.find("thead");
+                let $tbody = $table.find("tbody");
+                $thead.append(`
+                <tr>
+                    <th class="number_cell asc"><a href="javascript:void(0);">No.</a></th>
+                    <th class="text_cell"><a href="javascript:void(0);">名前</a></th>
+                    <th class="number_cell"><a href="javascript:void(0);">レス数</a></th>
+                    <th class="number_cell"><a href="javascript:void(0);">勢い</a></th>
+                </tr>`);
+                $(doc).find("#trad a").map((i, e) => ({ mThreadId: $(e).attr("href").match(/(1[0-9]{9})\/l50/), mText: $(e).text().match(/([0-9]+): (.*)\(([0-9]{1,4})\)$/) })).toArray()
+                    .filter(e => e.mThreadId && e.mText)
+                    .map(e => $(`
+                    <tr>
+                        <td class="number_cell">${e.mText[1]}</td>
+                        <td class="text_cell"><a href="/test/read.cgi/${boardId}/${e.mThreadId[1]}/l50" target="_blank">${e.mText[2]}</a></td>
+                        <td class="number_cell">${e.mText[3]}</td>
+                        <td class="number_cell">${ikioi(e.mThreadId[1], e.mText[3])}</td>
+                    </tr>`))
+                    .forEach($tr => $tbody.append($tr));
+                $orig = $(".THREAD_MENU div");
+                $orig.after($container);
+                $orig.remove();
+
+                if (localStorage.getItem("scroll") == "noscroll") {
+                    $container.addClass("noscroll");
+                }
+                let scrollText = () => $container.hasClass("noscroll") ? "スクロール化" : "全スレッド表示";
+                let $scrollCtrl = $('<a href="javascript:void(0);"></a>').text(scrollText()).on("click", function () {
+                    if ($container.hasClass("noscroll")) {
+                        $container.removeClass("noscroll");
+                        localStorage.setItem("scroll", "");
+                    } else {
+                        $container.addClass("noscroll");
+                        localStorage.setItem("scroll", "noscroll");
+                    }
+                    $scrollCtrl.text(scrollText());
+                });
+
+
+                $container.prev("p").children("b").append("&nbsp;").append($scrollCtrl);
+                $thead.on("click", "th a", function () {
+                    let $a = $(this);
+                    let prevAsc = $a.closest("th").hasClass("asc");
+                    $thead.find("th").removeClass("asc").removeClass("desc");
+                    let idx = $a.closest("tr").children("th").index($a.closest("th"));
+                    if (prevAsc) {
+                        $a.closest("th").addClass("desc");
+                    } else {
+                        $a.closest("th").addClass("asc");
+                    }
+
+                    let ar = $tbody.find("tr").toArray();
+                    ar.sort((l, r) => {
+                        if ($a.closest("th").hasClass("desc")) {
+                            let tmp = l;
+                            l = r;
+                            r = tmp;
+                        }
+                        let lt = $(l).children("td").eq(idx).text(), rt = $(r).children("td").eq(idx).text();
+                        if (idx == 1) {
+                            if (lt < rt) {
+                                return -1;
+                            } else if (lt > rt) {
+                                return 1;
+                            }
+                        } else {
+                            return parseInt(lt) - parseInt(rt);
+                        }
+                        return 0;
+                    });
+                    $tbody.find("tr").remove();
+                    $tbody.append(ar);
+                });
+            });
+    };
+
     await _.init();
     if (!_.settings.app.get().stop) {
-        _.injectJs();
-        $(function () {
-            if ($(".thread .post").length != 0) {
-                main();
-            }
-        });
+        $("html").addClass("gochutil");
+        if (mTopUrl) {
+            $(function () {
+                top();
+            });
+        } else if (mSubbackUrl) {
+            $(function () {
+                subback();
+            });
+        } else if (mThreadUrl) {
+            _.injectJs();
+            $(function () {
+                if ($(".thread .post").length != 0) {
+                    thread();
+                }
+            });
+        }
     }
 }(this));

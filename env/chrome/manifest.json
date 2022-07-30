@@ -1,6 +1,6 @@
 {
   "name": "5chutil",
-  "version": "0.1.1.15",
+  "version": "0.1.1.16",
   "manifest_version": 3,
   "description": "5ch のスレッドページに NG や外部コンテンツ埋め込み等の便利な機能を追加する拡張機能",
   "icons": {
@@ -10,7 +10,7 @@
   },
   "content_scripts": [
     {
-      "matches": [ "*://*.5ch.net/test/read.cgi/*" ],
+      "matches": [ "*://*.5ch.net/test/read.cgi/*", "*://*.5ch.net/*/subback.html", "*://*.5ch.net/*/", "*://*.5ch.net/*/?*"],
       "js": [
         "js/jquery-3.6.0.min.js",
         "env.js",

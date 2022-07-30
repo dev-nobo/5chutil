@@ -9,7 +9,7 @@ var GOCHUTIL = GOCHUTIL || {};
     _.env.allowRemoteScript = true;
 
     // ==================
-    let b = chrome || browser;
+    let b = browser;
 
     _.storage.get = async (key) => {
         var val = await b.storage.local.get(this.key);

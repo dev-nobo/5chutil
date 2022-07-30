@@ -3,10 +3,67 @@
     _.$ = _.$ || jQuery?.noConflict?.(true);
     let $ = _.$;
 
-    let main = () => {
+    let mTopUrl = window.location.href.match(/https?:\/\/([^./]+?)\.5ch\.net\/([^/]+?)\/(\?.*|)$/);
+    let mSubbackUrl = window.location.href.match(/https?:\/\/([^./]+?)\.5ch\.net\/([^/]+?)\/subback.html/);
+    let mThreadUrl = window.location.href.match(/https?:\/\/([^./]+?)\.5ch\.net\/test\/read.cgi\/([^/]+)\/[0-9]{10}.*/);
+    let getGroup = idx => [mTopUrl, mSubbackUrl, mThreadUrl].find(m => m)?.[idx];
+    let subDomain = getGroup(1);
+    let boardId = getGroup(2);
+    let threadId = mThreadUrl && mThreadUrl[3];
+
+    let subbackUrl = `${location.origin}/${boardId}/subback.html`;
+
+    // データのフェッチ.
+    let fetchHtml = (url, option) => {
+        return fetchInner(url, option)
+            .then(response => response.arrayBuffer())
+            .then(ab => new TextDecoder(document.characterSet).decode(ab))
+            .catch(err => {
+                if (err.httpStatus != 500) {
+                    // データなしの場合500が返ってくるので、無視.
+                    throw err;
+                }
+            })
+            .then(html => {
+                let parser = new DOMParser();
+                return parser.parseFromString(html, "text/html");
+            });
+    };
+
+    let fetchInner = (url, option) => {
+        return fetch(url, option)
+            .then(response => {
+                if (response.status == 200) {
+                    return response;
+                } else {
+                    let err = new Error(`fetch response url:${response.url} code:${response.status}`);
+                    err.httpStatus = response.status;
+                    throw err;
+                }
+            });
+    }
+
+    let fetchDataUrl = (url) => fetchInner(url).then(response => response.blob()).then(blob => blobToDataUrl(blob));
+
+    let blobToBase64 = async (blob) => {
+        let dataUrl = await blobToDataUrl(blob);
+        return dataUrl.substr(dataUrl.indexOf(',') + 1);
+    };
+
+    let blobToDataUrl = (blob) => {
+        return new Promise((resolve, reject) => {
+            let r = new FileReader();
+            r.onload = () => resolve(r.result);
+            r.onerror = (e) => reject(new Error("fail to convert base64"));
+            r.onabort = (e) => reject(new Error("fail to convert base64"));
+            r.readAsDataURL(blob);
+        });
+    };
+
+    let thread = () => {
         const rName = /^<b>(.*?) *<\/b>/;
         const rTrip = /(◆[./0-9A-Za-z]{8,12})/;
-        const rSlip = /(\(.+? ([*A-Za-z0-9+/]{4}-[*A-Za-z0-9+/=]{4}).*?\))/;
+        const rSlip = /\((.+? ([*A-Za-z0-9+/]{4}-[*A-Za-z0-9+/=]{4}).*?)\)/;
         const rKoro2 = /([*A-Za-z0-9+/]{4}-[*A-Za-z0-9+/=]{4})/;
         const rIp = /([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/;
         const rUid = /^ID:([^ ]{8,16})$/;
@@ -15,6 +72,8 @@
         const rAnotherThreadHref = new RegExp(`(https?:\/\/${location.hostname.replace(".", "\.")}\/test\/read.cgi\/[^/]+\/[0-9]+\/)$`);
 
         const threadUrl = ($("#zxcvtypo").val().startsWith("//") ? location.protocol : "") + $("#zxcvtypo").val() + "/";
+
+        $("html").addClass("gochutilthread");
 
         let postValueCache = {};
 
@@ -106,13 +165,19 @@
             return {
                 name: _.settings.ng.names.contains(value.name),
                 trip: _.settings.ng.trips.contains(value.trip),
-                slip: _.settings.ng.slips.contains(value.slip),
+                slip: _.settings.ng.slips.match(value.slip),
                 koro2: _.settings.ng.koro2s.contains(value.koro2),
                 ip: _.settings.ng.ips.contains(value.ip),
                 id: _.settings.ng.dateAndIDs.contains(value.dateAndID),
                 word: _.settings.ng.words.match(value.msg),
                 any: function () {
                     return Object.values(this).filter(e => typeof (e) === 'boolean').some(v => v);
+                },
+                message: function () {
+                    if (this.any()) {
+                        let ngMsgs = [[this.name, "Name"], [this.trip, "Trip"], [this.slip, "SLIP Regex"], [this.koro2, "Korokoro2(SLIP)"], [this.ip, "IP(SLIP)"], [this.id, "ID and Date"], [this.word, "Word"]];
+                        return ngMsgs.filter(v => v[0]).map(v => v[1]).join(", ") + "によりNG";
+                    }
                 }
             }
         }
@@ -131,7 +196,7 @@
             } else {
                 if ($span.children("a").length == 0) {
                     $span.html(`[<a href="javascript:void(0)">${text}</a>]`);
-                }else{
+                } else {
                     $span.children("a").text(`${text}`);
                 }
             }
@@ -581,7 +646,7 @@
             if (matchNG.any()) {
                 $post.addClass("abone");
                 $post.find(".meta,.message,.message span").addClass("abone");
-                $post.find(".message").append('<span class="abone_message"><a href="javascript:void(0)">あぼーん</a></span>');
+                $post.find(".message").append(`<span class="abone_message" data-ng-msg="${matchNG.message()}"><a href="javascript:void(0)">あぼーん</a></span>`);
             }
 
             // 制御用リンク追加.
@@ -756,6 +821,13 @@
             return $popup;
         }
 
+        let cssAnim = ($e, cls) => {
+            return new Promise((resolve, reject) => {
+                $e.addClass(cls);
+                setTimeout(() => resolve($e), 200);
+            });
+        };
+
         let getParentPopupId = popupId => $(`#${popupId}`).attr("data-parent-popup-id");
         let getCurrentPopupIdByElem = $e => $e.closest("div.popup-container").attr("id") ?? "popup-root";
         let getChildPopupIds = popupId => $(`[data-parent-popup-id="${popupId}"]`).map((i, e) => $(e).attr("id")).toArray() ?? [];
@@ -843,6 +915,12 @@
                     size();
                 }
                 place();
+
+                $popup.css("opacity", 0);
+                setTimeout(() => {
+                    $popup.css("opacity", "");
+                    cssAnim($popup, "slide_in").then($e => $e.removeClass("slide_in"));
+                }, 0);
             }
         }
 
@@ -858,8 +936,10 @@
                 if (popupId && $(`#${popupId}`).length > 0) {
                     return;
                 }
-                popupId = nextPopupId();
-                $a.attr("data-popup-id", popupId);
+                if (!popupId) {
+                    popupId = nextPopupId();
+                    $a.attr("data-popup-id", popupId);
+                }
 
                 if (showDelay) {
                     // タイマー設定して、1秒後にポップアップ処理.
@@ -929,7 +1009,7 @@
         };
 
         // ポップアップを閉じれるかチェックして可能なら閉じる
-        let closePopupDelay = 250;
+        let closePopupDelay = 200;
         let checkAndClosePopup = (popupId) => {
             setTimeout(() => checkAndClosePopupInner(popupId), closePopupDelay);
         }
@@ -1110,6 +1190,7 @@
                         let $inner = $a.closest("div.message.abone").clone().removeClass("abone");
                         $inner.find("span.abone_message").remove();
                         $inner.find("span").removeClass("abone");
+                        $inner.append(`<br><span class="ng_match_msg">${$a.closest(".abone_message").attr("data-ng-msg")}</span>`)
                         return $inner;
                     }, delay, $a => $a.offset());
             };
@@ -1179,7 +1260,8 @@
             if (popupId && (pinned || !$(`#${popupId}`).hasClass("pinned"))) {
                 // Pinされているものは残す. stack上から消えても残す.
                 $(`[data-popup-id="${popupId}"]`).removeClass("popupping").removeAttr("data-popup-id");
-                $(`#${popupId}`).remove();
+                let $p = $(`#${popupId}`).removeAttr("id");
+                cssAnim($p, "slide_out").then($e => $e.remove());
             }
         };
 
@@ -1334,53 +1416,6 @@
         }
         controlReloadControler();
 
-        // データのフェッチ.
-        let fetchHtml = (url, option) => {
-            return fetchInner(url, option)
-                .then(response => response.arrayBuffer())
-                .then(ab => new TextDecoder(document.characterSet).decode(ab))
-                .catch(err => {
-                    if (err.httpStatus != 500) {
-                        // データなしの場合500が返ってくるので、無視.
-                        throw err;
-                    }
-                })
-                .then(html => {
-                    let parser = new DOMParser();
-                    return parser.parseFromString(html, "text/html");
-                });
-        };
-
-        let fetchInner = (url, option) => {
-            return fetch(url, option)
-                .then(response => {
-                    if (response.status == 200) {
-                        return response;
-                    } else {
-                        let err = new Error(`fetch response url:${response.url} code:${response.status}`);
-                        err.httpStatus = response.status;
-                        throw err;
-                    }
-                });
-        }
-
-        let fetchDataUrl = (url) => fetchInner(url).then(response => response.blob()).then(blob => blobToDataUrl(blob));
-
-        let blobToBase64 = async (blob) => {
-            let dataUrl = await blobToDataUrl(blob);
-            return dataUrl.substr(dataUrl.indexOf(',') + 1);
-        };
-
-        let blobToDataUrl = (blob) => {
-            return new Promise((resolve, reject) => {
-                let r = new FileReader();
-                r.onload = () => resolve(r.result);
-                r.onerror = (e) => reject(new Error("fail to convert base64"));
-                r.onabort = (e) => reject(new Error("fail to convert base64"));
-                r.readAsDataURL(blob);
-            });
-        };
-
         // 新着レスの取得と追加
         let fetching = false;
 
@@ -1454,7 +1489,7 @@
                     })
                     .finally(() => {
                         // 10 秒利用不可.
-                        document.documentElement.style.setProperty('--wait-appendnew-animation-span', `${waitSecondsForAppendNewPost}s`);
+                        document.documentElement.style.setProperty('--gochutil-wait-appendnew-animation-span', `${waitSecondsForAppendNewPost}s`);
                         $("div.newposts span.appendnewposts").addClass("disabled")
                         $("div.newposts span.appendnewposts a").addClass("backgroundwidthprogress");
                         setTimeout(() => {
@@ -1546,7 +1581,7 @@
                     $("div.newposts span.autoload_newposts").addClass("backgroundwidthprogress");
                 }, autoloadIntervalSeconds * 1000);
                 $("div.newposts span.autoload_newposts").removeClass("backgroundwidthprogress");
-                document.documentElement.style.setProperty('--wait-animation-span', `${autoloadIntervalSeconds}s`);
+                document.documentElement.style.setProperty('--gochutil-wait-animation-span', `${autoloadIntervalSeconds}s`);
                 reflow($("div.newposts span.autoload_newposts").get(0));
                 $("div.newposts span.autoload_newposts").addClass("backgroundwidthprogress");
             } else {
@@ -1681,7 +1716,7 @@
                 .filter($n => $n.attr("id") && getPostId($n));
             let relatedPostId = Array.from(new Set([].concat(addRefData($(addedPosts.map($n => $n.get(0))))).concat(removeRefData($(removedPosts.map($n => $n.get(0)))))));
             var $addedPosts = $(addedPosts.map($p => $p.get(0)));
-            $addedPosts.filter("div.post").addClass("new");
+            $addedPosts.filter("div.post").each((i, e) => cssAnim($(e), "slide_in").then($e => $e.removeClass("slide_in").addClass("new")));
             if (_.settings.app.get().newPostMarkDisplaySeconds > 0) {
                 removeNewPostMarkTimeout = setTimeout(() => removeNewPostMark(), _.settings.app.get().newPostMarkDisplaySeconds * 1000);
             }
@@ -1741,13 +1776,114 @@
         let initProcessPostsPromise = processAllPosts(true);
     };
 
+    let ikioi = (threadId, res) => Math.ceil(parseInt(res) / ((parseInt((new Date) / 1000) - parseInt(threadId)) / 86400));
+
+    let subback = () => {
+        $("a").map((i, e) => ({ mThreadId: $(e).attr("href").match(/(1[0-9]{9})\/l50/), mRes: $(e).text().match(/\(([0-9]{1,4})\)$/), $a: $(e) })).toArray()
+            .filter(e => e.mThreadId && e.mRes)
+            .forEach(e => e.$a.text(`${e.$a.text()} [勢い:${ikioi(e.mThreadId[1], e.mRes[1])}]`));
+    };
+
+    let top = () => {
+        fetchHtml(subbackUrl)
+            .then(doc => {
+                $("html").addClass("gochutiltop");
+                let $container = $(`<div class="thread_list"><table><thead></thead><tbody></tbody></table></div>`);
+                let $table = $container.find("table");
+                let $thead = $table.find("thead");
+                let $tbody = $table.find("tbody");
+                $thead.append(`
+                <tr>
+                    <th class="number_cell asc"><a href="javascript:void(0);">No.</a></th>
+                    <th class="text_cell"><a href="javascript:void(0);">名前</a></th>
+                    <th class="number_cell"><a href="javascript:void(0);">レス数</a></th>
+                    <th class="number_cell"><a href="javascript:void(0);">勢い</a></th>
+                </tr>`);
+                $(doc).find("#trad a").map((i, e) => ({ mThreadId: $(e).attr("href").match(/(1[0-9]{9})\/l50/), mText: $(e).text().match(/([0-9]+): (.*)\(([0-9]{1,4})\)$/) })).toArray()
+                    .filter(e => e.mThreadId && e.mText)
+                    .map(e => $(`
+                    <tr>
+                        <td class="number_cell">${e.mText[1]}</td>
+                        <td class="text_cell"><a href="/test/read.cgi/${boardId}/${e.mThreadId[1]}/l50" target="_blank">${e.mText[2]}</a></td>
+                        <td class="number_cell">${e.mText[3]}</td>
+                        <td class="number_cell">${ikioi(e.mThreadId[1], e.mText[3])}</td>
+                    </tr>`))
+                    .forEach($tr => $tbody.append($tr));
+                $orig = $(".THREAD_MENU div");
+                $orig.after($container);
+                $orig.remove();
+
+                if (localStorage.getItem("scroll") == "noscroll") {
+                    $container.addClass("noscroll");
+                }
+                let scrollText = () => $container.hasClass("noscroll") ? "スクロール化" : "全スレッド表示";
+                let $scrollCtrl = $('<a href="javascript:void(0);"></a>').text(scrollText()).on("click", function () {
+                    if ($container.hasClass("noscroll")) {
+                        $container.removeClass("noscroll");
+                        localStorage.setItem("scroll", "");
+                    } else {
+                        $container.addClass("noscroll");
+                        localStorage.setItem("scroll", "noscroll");
+                    }
+                    $scrollCtrl.text(scrollText());
+                });
+
+
+                $container.prev("p").children("b").append("&nbsp;").append($scrollCtrl);
+                $thead.on("click", "th a", function () {
+                    let $a = $(this);
+                    let prevAsc = $a.closest("th").hasClass("asc");
+                    $thead.find("th").removeClass("asc").removeClass("desc");
+                    let idx = $a.closest("tr").children("th").index($a.closest("th"));
+                    if (prevAsc) {
+                        $a.closest("th").addClass("desc");
+                    } else {
+                        $a.closest("th").addClass("asc");
+                    }
+
+                    let ar = $tbody.find("tr").toArray();
+                    ar.sort((l, r) => {
+                        if ($a.closest("th").hasClass("desc")) {
+                            let tmp = l;
+                            l = r;
+                            r = tmp;
+                        }
+                        let lt = $(l).children("td").eq(idx).text(), rt = $(r).children("td").eq(idx).text();
+                        if (idx == 1) {
+                            if (lt < rt) {
+                                return -1;
+                            } else if (lt > rt) {
+                                return 1;
+                            }
+                        } else {
+                            return parseInt(lt) - parseInt(rt);
+                        }
+                        return 0;
+                    });
+                    $tbody.find("tr").remove();
+                    $tbody.append(ar);
+                });
+            });
+    };
+
     await _.init();
     if (!_.settings.app.get().stop) {
-        _.injectJs();
-        $(function () {
-            if ($(".thread .post").length != 0) {
-                main();
-            }
-        });
+        $("html").addClass("gochutil");
+        if (mTopUrl) {
+            $(function () {
+                top();
+            });
+        } else if (mSubbackUrl) {
+            $(function () {
+                subback();
+            });
+        } else if (mThreadUrl) {
+            _.injectJs();
+            $(function () {
+                if ($(".thread .post").length != 0) {
+                    thread();
+                }
+            });
+        }
     }
 }(this));

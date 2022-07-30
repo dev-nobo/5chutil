@@ -103,13 +103,14 @@
             $(`span.ng.${className}.max`).text(maxSize);
         }
 
-        let wordValueToOpt = v => $(`<option data-word="${v}">${v}</option>`);
-        initialiezeNG("name", () => _.settings.ng.names.list(), v => $(`<option>${v}</option>`), v => _.settings.ng.names.set(v), _.settings.ng.names.maxSize());
-        initialiezeNG("trip", () => _.settings.ng.trips.list(), v => $(`<option>${v}</option>`), v => _.settings.ng.trips.set(v), _.settings.ng.trips.maxSize());
-        initialiezeNG("koro2", () => _.settings.ng.koro2s.list(), v => $(`<option>${v}</option>`), v => _.settings.ng.koro2s.set(v), _.settings.ng.koro2s.maxSize());
-        initialiezeNG("ip", () => _.settings.ng.ips.list(), v => $(`<option>${v}</option>`), v => _.settings.ng.ips.set(v), _.settings.ng.ips.maxSize());
+        let valueToOpt = v => $(`<option data-text="${v}">${v}</option>`);
+        initialiezeNG("name", () => _.settings.ng.names.list(), valueToOpt, v => _.settings.ng.names.set(v), _.settings.ng.names.maxSize());
+        initialiezeNG("trip", () => _.settings.ng.trips.list(), valueToOpt, v => _.settings.ng.trips.set(v), _.settings.ng.trips.maxSize());
+        initialiezeNG("koro2", () => _.settings.ng.koro2s.list(), valueToOpt, v => _.settings.ng.koro2s.set(v), _.settings.ng.koro2s.maxSize());
+        initialiezeNG("ip", () => _.settings.ng.ips.list(), valueToOpt, v => _.settings.ng.ips.set(v), _.settings.ng.ips.maxSize());
+        initialiezeNG("slip", () => _.settings.ng.slips.list(), valueToOpt, v => _.settings.ng.slips.set(v), _.settings.ng.slips.maxSize());
         initialiezeNG("dateAndID", () => _.settings.ng.dateAndIDs.list(), v => $(`<option data-date="${v.date}" data-uid="${v.id}" >Date:${v.date}&nbsp;|&nbsp;ID:${v.id}</option>`), v => _.settings.ng.dateAndIDs.set(v), _.settings.ng.dateAndIDs.maxSize());
-        initialiezeNG("word", () => _.settings.ng.words.list(), wordValueToOpt, v => _.settings.ng.words.set(v), _.settings.ng.words.maxSize());
+        initialiezeNG("word", () => _.settings.ng.words.list(), valueToOpt, v => _.settings.ng.words.set(v), _.settings.ng.words.maxSize());
 
         $("button.ng.dateAndID.select").off("click");
         $("button.ng.dateAndID.select").on("click", function () {
@@ -140,9 +141,31 @@
             } else {
                 $("select.ng.word").append(vToOption(word, wordValueToOpt));
                 let del = await _.settings.ng.words.add(word);
-                del.forEach(d => $(`option[data-word = "${d}"]`).remove());
+                del.forEach(d => $(`option[data-text = "${d}"]`).remove());
                 $("input.ng.word.input").val("");
                 $("input.ng.word.input").trigger("change");
+            }
+        });
+
+        $("button.ng.slip.add").off("click");
+        $("button.ng.slip.add").on("click", async function () {
+            let slip = $("input.ng.slip.input").val();
+            if (!slip) {
+                window.alert("データを入力してください。");
+            } else if (slip && _.settings.ng.slips.contains(slip)) {
+                window.alert("登録済みです。");
+            } else {
+                try {
+                    new RegExp(slip);
+                    $("select.ng.slip").append(`<option>${slip}</option>`);
+                    let del = await _.settings.ng.slips.add(slip);
+                    del.forEach(d => $(`option[data-text = "${d}"]`).remove());
+                    $("input.ng.slip.input").val("");
+                    $("input.ng.slip.input").trigger("change");
+                } catch (e) {
+                    window.alert("正規表現として不正です。");
+                    return;
+                }
             }
         });
     };
