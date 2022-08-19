@@ -16,52 +16,90 @@
     height:auto;
 }
 
-.gochutil.gochutiltop div.thread_list table {
+.gochutil table.list {
     border-collapse: separate;
     border-spacing: 0;
+    font-weight: bold;
     font-size: 0.75em;
-    font-weight: 600;
 }
 
-.gochutil.gochutiltop div.thread_list table thead {
+.gochutil.gochutil.gochutilthread .loader table.list {
+    display: none;
+}
+
+.gochutil.gochutil.gochutilthread table.list {
+    width: 100%;
+    font-size: 0.85em;
+}
+
+.gochutil table.list thead {
     background-color: #555;
     position: sticky;
     top: 0;
+    white-space: nowrap;
 }
 
-.gochutil.gochutiltop div.thread_list table thead tr a {
+.gochutil table.list thead tr a {
     color: #fff;
 }
 
-.gochutil.gochutiltop div.thread_list table thead tr {
+.gochutil table.list thead tr {
     z-index: 1;
+    color: #fff;
 }
 
-.gochutil.gochutiltop div.thread_list table .number_cell {
+.gochutil table.list .number_cell {
     text-align: right;
 }
 
-.gochutil.gochutiltop div.thread_list table th, .gochutil.gochutiltop div.thread_list table td {
+.gochutil table.list .date_cell {
+    text-align: right;
+}
+
+.gochutil table.list th, .gochutil table td {
     border-bottom: 1px solid #aaa;
     border-right: 1px solid #aaa;
 }
 
-.gochutil.gochutiltop div.thread_list table tr:first-child th, .gochutil.gochutiltop div.thread_list table tr:first-child td {
+.gochutil table.list tr:first-child th, .gochutil table.list tr:first-child td {
     border-top: 1px solid #aaa;
 }
 
-.gochutil.gochutiltop div.thread_list table tr th:first-child, .gochutil.gochutiltop div.thread_list table tr td:first-child {
+.gochutil table.list tr th:first-child, .gochutil table.list tr td:first-child {
     border-left: 1px solid #aaa;
 }
 
-.gochutil.gochutiltop table td {
+.gochutil table.list tbody tr {
     background: #ccc;
 }
 
-.gochutil.gochutiltop table tr:nth-child(odd) td {
+.gochutil table.list tbody tr:nth-child(odd){
     background: #fff;
 }
 
+.gochutil table.list.searching tbody tr{
+    display: none;
+}
+
+.gochutil table.list.searching tbody tr.hit{
+    display: table-row;
+    background: #eee;
+}
+
+.gochutil table.list td.loader * {
+    display: none;
+}
+
+.gochutil table.list td, .gochutil table.list th {
+    padding: 0 3px 0 3px;
+}
+
+.gochutil.gochutilthread table.list tbody tr.current {
+    font-weight: bold;
+}
+.gochutil.gochutilthread table.list tbody tr.current td:first-child:before{
+    content: "▶";
+}
 
 .gochutil.gochutilthread div.message.abone span.abone {
     display: none;
@@ -104,7 +142,7 @@
     color: #cc0000;
 }
 
-.gochutil.gochutilthread a {
+.gochutil.gochutilthread .post a {
     transition: background-color .3s ease-out;
 }
 
@@ -217,6 +255,10 @@
     overflow: auto;
 }
 
+.gochutil.gochutilthread div.popup.top_popup{
+    z-index: 10;
+}
+
 .gochutil.gochutilthread div.popup.resizeable {
     resize: both;
 }
@@ -253,13 +295,38 @@
     cursor: grabbing;
 }
 
-.gochutil.gochutilthread div.popup div.popup_header .left {
+.gochutil.gochutilthread div.popup div.popup_header .popup_pin {
+    display: unset;
+}
+.gochutil.gochutilthread div.popup div.popup_header .popup_unpin {
+    display: none;
+}
+.gochutil.gochutilthread div.popup.pinned div.popup_header .popup_pin {
+    display: none;
+}
+.gochutil.gochutilthread div.popup.pinned div.popup_header .popup_unpin {
+    display: unset;
+}
+.gochutil.gochutilthread div.popup div.popup_header .popup_fix {
+    display: unset;
+}
+.gochutil.gochutilthread div.popup div.popup_header .popup_unfix {
+    display: none;
+}
+.gochutil.gochutilthread div.popup.fixed div.popup_header .popup_fix {
+    display: none;
+}
+.gochutil.gochutilthread div.popup.fixed div.popup_header .popup_unfix {
+    display: unset;
+}
+
+.gochutil.gochutilthread .lrcontainer .left {
     text-align: left;
     float: left;
     display: block;
 }
 
-.gochutil.gochutilthread div.popup div.popup_header .right {
+.gochutil.gochutilthread .lrcontainer .right {
     text-align: right;
     display: block;
 }
@@ -459,13 +526,308 @@
     display: inline-block;
 }
 
+.gochutil.gochutilthread div.left_container{
+    position: fixed;
+    width: 15px;
+    display: flex;
+    top: 50px;
+    left: 0px;
+    height: calc(100vh - 50px);
+    transition: width 0.4s 0s ease-out;
+}
+
+.gochutil.gochutilthread .hide_left .left_container {
+    display: none;
+}
+
+.gochutil.gochutilthread div.left_pane{
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 0;
+    overflow: hidden;
+    transition: width 0.4s 0s ease-out;
+    white-space: nowrap;
+    border-right: 1px #aaa solid;
+}
+
+.gochutil.gochutilthread div.left_pane div.caption{
+    font-size: larger;
+    font-weight: bolder;
+    color:#333;
+    margin-top: 10px;
+    margin-left: 2px;
+}
+
+.gochutil.gochutilthread div.left_pane div.board_pane{
+    position: relative;
+    overflow: hidden;
+    border: 1px #aaa solid;
+    width: 200px;
+    flex-grow: 1;
+}
+
+.gochutil.gochutilthread .open_left div.left_pane div.board_pane{
+    overflow-y: scroll;
+}
+
+.gochutil.gochutilthread div.left_pane div.board_pane div.board.selected a{
+    color:#ddd;
+    background-color: #666;
+}
+
+.gochutil.gochutilthread div.left_pane div.board_pane div.board.current a{
+    font-weight: bold;
+}
+
+.gochutil.gochutilthread div.left_pane div.board_pane div.board.current a::before{
+    content: "▶";
+}
+
+.gochutil.gochutilthread div.left_pane div.feature_pane {
+    margin-left: 10px;
+}
+
+.gochutil.gochutilthread div.left_pane div.feature_pane div.bookmark .icon {
+    display:inline-block;
+    width: 20px;
+    min-height: 10px;
+}
+
+.gochutil.gochutilthread div.left_pane div.feature_pane div.bookmark .icon::before {
+    content: "☆";
+}
+
+.gochutil.gochutilthread div.left_pane div.feature_pane div.bookmark.registered .icon::before {
+    content: "★";
+}
+
+.gochutil.gochutilthread div.left_pane div.feature_pane div.bookmark.processing .icon::before {
+    content: "";
+}
+
+.gochutil.gochutilthread div.left_pane div.feature_pane div.bookmark .msg::before {
+    content: "ブックマーク登録";
+}
+
+.gochutil.gochutilthread div.left_pane div.feature_pane div.bookmark.registered .msg::before {
+    content: "ブックマーク解除";
+}
+
+.gochutil.gochutilthread div.left_pane div.feature_pane div.bookmark.processing .msg::before {
+    content: "処理中";
+}
+
+.gochutil.gochutilthread div.open_left_pane {
+    background-color:#888;
+    width: 15px;
+    height: 75px;
+    line-height: 75px;
+    vertical-align: middle;
+    clip-path: polygon(0% 0%, 100% 15%, 100% 85%, 0% 100%);
+    position: absolute;
+    margin: 0 0 auto auto;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    color: white;
+    cursor: pointer;
+    opacity: 0.5;
+
+    transition: margin-left 0.4s 0s ease-out, opacity 0.3s;
+}
+
+.gochutil.gochutilthread div.open_left_pane:hover {
+    opacity: 1;
+    transition: opacity 0.3s;
+}
+
+.gochutil.gochutilthread div.open_left_pane::before {
+    width: 15px;
+    height: 75px;
+    clip-path: polygon(0% 8%, 85% 20%, 85% 80%, 0% 92%);
+    background-color:#aaa;
+    content: "";
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    position: absolute;
+    content: "▶";
+}
+
+.gochutil.gochutilthread .open_left div.open_left_pane{
+    opacity: 1;
+    transition: opacity 0.3s;
+}
+
+.gochutil.gochutilthread .open_left div.open_left_pane::before{
+    content: "◀";
+}
+
+.gochutil.gochutilthread .container.container_body{
+    transition: margin-left 0.4s 0s ease-out;
+}
+
+.gochutil.gochutilthread .open_left div.left_container{
+    width:215px;
+    transition: width 0.4s 0s ease-out;
+}
+
+.gochutil.gochutilthread .open_left div.left_pane{
+    width:200px;
+    transition: width 0.4s 0s ease-out;
+}
+
+.gochutil.gochutilthread .container.container_body.open_left{
+    margin-left: 200px;
+    transition: margin-left 0.4s 0s ease-out;
+}
+
+.gochutil.gochutilthread .immediate, .gochutil.gochutilthread .immediate * {
+    transition: none !important;
+}
+
+.gochutil.gochutilthread .expandable > span > a::before{
+    content:"▼";
+}
+
+.gochutil.gochutilthread .expandable.expand > span > a::before{
+    content:"▲";
+}
+
+.gochutil.gochutilthread .expandable div.board_list{
+    height: 0;
+    margin-left: 15px;
+    overflow: hidden;
+    transition: height 0.4s 0s ease-out;
+}
+
+.gochutil.gochutilthread .expandable.expand div.board_list{
+    /* height: auto; */
+    transition: height 0.4s 0s ease-out;
+}
+
+.gochutil.gochutilthread #thread_list{
+    min-width: 300px;
+    min-height: 300px;
+}
+
+.gochutil.gochutilthread #bookmark {
+    min-width: 400px;
+    min-height: 200px;
+}
+
+.gochutil.gochutilthread .feature_inner{
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.gochutil.gochutilthread .feature_inner.hide_feature{
+    display: none;
+}
+
+.gochutil.gochutilthread .feature_inner .feature_container  {
+    flex-grow: 1;
+}
+
+.gochutil.gochutilthread .feature_inner > div {
+    margin-top: 5px;
+}
+
+.gochutil.gochutilthread .feature_inner .feature_option > div {
+    display: inline-block;
+    margin-right: 30px;
+}
+
+.gochutil.gochutilthread .feature_inner .feature_option .error {
+    color: #bb2020;
+}
+
+.gochutil.gochutilthread .feature_inner .feature_option .process_all {
+    display: inline-block;
+}
+
+.gochutil.gochutilthread .feature_inner .feature_option .process_all.processing .process {
+    display: none;
+}
+
+.gochutil.gochutilthread .feature_inner .feature_option .process_all .processing {
+    display: none;
+}
+
+.gochutil.gochutilthread .feature_inner .feature_option .process_all.processing .processing {
+    display: inline-block;
+}
+
+.gochutil.gochutilthread .container.container_body > h1.title {
+    margin-top: 38px;
+}
+
+.gochutil.gochutilthread .top_container {
+    position: sticky;
+    top: 52px;
+    height: auto;
+    width:100%;
+    margin-top: -18px;
+    background-color: #f2f3f7;
+    z-index: 1;
+}
+
+.gochutil.gochutilthread .top_container .top_pane{
+    width: 100%;
+    height: 100%;
+    border: 1px solid #aaa;
+    display: none;
+}
+
+.gochutil.gochutilthread .open_top .top_container .top_pane{
+    display: block;
+}
+
+.gochutil.gochutilthread .top_container .top_pane .top_pane_header {
+    background-color: #ddd;
+    color: black;
+    line-height: 17px;
+    font-size: 15px;
+    font-family: monospace;
+    border-bottom: 1px solid #aaa;
+}
+
+.gochutil.gochutilthread .top_container .top_pane .top_pane_body_outer {
+    resize: vertical;
+    overflow: hidden;
+    min-height: 100px;
+    max-height: 80vh;
+    padding: 0 2px 2px 2px;
+}
+
+.gochutil.gochutilthread .top_container .top_pane .top_pane_body_outer .top_pane_body_inner {
+    overflow-y: scroll;
+    height: 100%;
+    width: 100%;
+}
+
+.gochutil.gochutilthread .top_container .top_pane .top_pane_body_outer .top_pane_body_inner .top_pane_body {
+    height: 100%;
+    width: 100%;
+}
+
 .gochutil.gochutilthread .loader {
     position: relative;
+    font-size: 8px;
+}
+
+.gochutil.gochutilthread .loader.inline {
+    font-size: 1px;
+    margin-left: 5px;
+    margin-right: 5px;
 }
 
 .gochutil.gochutilthread .loader::after {
     content: "";
-    font-size: 8px;
     left: 0;
     right: 0;
     top: 0;
@@ -479,20 +841,30 @@
     transform: translateZ(0);
 }
 
-.gochutil.gochutilthread .fade_in {
-    animation: gochutilFadeIn 10s ease-out 1 forwards;
+.gochutil.gochutilthread .pop_in {
+    animation: gochutilPopIn 0.2s ease-out 1 forwards;
 }
 
-.gochutil.gochutilthread .fade_out {
-    animation: gochutilFadeOut 0.2s ease-in 1 forwards;
+.gochutil.gochutilthread .pop_out {
+    animation: gochutilPopOut 0.2s ease-in 1 forwards;
 }
 
-.gochutil.gochutilthread .slide_in {
-    animation: gochutilSlideIn 0.2s ease-out 1 forwards;
+.gochutil.gochutilthread .draw_in {
+    animation: gochutilDrawIn 0.2s ease-out 1 forwards;
 }
 
-.gochutil.gochutilthread .slide_out {
-    animation: gochutilSlideOut 0.2s ease-in 1 forwards;
+.gochutil.gochutilthread .draw_out {
+    animation: gochutilDrawOut 0.2s ease-in 1 forwards;
+}
+
+.gochutil .outline {
+    display        : inline-block;
+    color          : #ffffff;
+    text-shadow    : 
+         1px  1px 0px #000,
+        -1px  1px 0px #000,
+         1px -1px 0px #000,
+        -1px -1px 0px #000;
 }
 
 @keyframes gochutilLoad {
@@ -571,26 +943,51 @@
     }
 }
 
-@keyframes gochutilSlideIn {
+@keyframes gochutilPopIn {
     0% {
-        transform: translateX(30px);
+        transform: translateY(30px);
         opacity: 0;
     }
 
     100% {
-        transform: translateX(0);
+        transform: translateY(0);
         opacity: 1;
     }
 }
 
-@keyframes gochutilSlideOut {
+@keyframes gochutilPopOut {
     0% {
-        transform: translateX(0);
+        transform: translateY(0);
         opacity: 1;
     }
 
     100% {
-        transform: translateX(30px);
+        transform: translateY(30px);
+        opacity: 0;
+    }
+}
+
+
+@keyframes gochutilDrawIn {
+    0% {
+        transform: translateY(-30px);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes gochutilDrawOut {
+    0% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateY(-30px);
         opacity: 0;
     }
 }

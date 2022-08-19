@@ -8,14 +8,17 @@
 // @match        *://*.5ch.net/*/subback.html
 // @match        *://*.5ch.net/*/
 // @match        *://*.5ch.net/*/?*
+// @connect      5ch.net
 // @grant        GM_getValue1
 // @grant        GM_setValue
 // @grant        GM_listValues
 // @grant        GM_deleteValue
+// @grant        GM_xmlhttpRequest
 // @grant        GM.getValue
 // @grant        GM.setValue
 // @grant        GM.listValues
 // @grant        GM.deleteValue
+// @grant        GM.xmlhttpRequest
 // @run-at       document-start
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js
 // @license MIT
@@ -56,6 +59,12 @@ var GOCHUTIL = GOCHUTIL || {};
         deleteValue = GM.deleteValue
     else
         deleteValue = GM_deleteValue
+
+    let gmXmlhttpRequest;
+    if (typeof GM_xmlhttpRequest === 'undefined')
+        gmXmlhttpRequest = GM.xmlhttpRequest
+    else
+        gmXmlhttpRequest = GM_xmlhttpRequest
 
     _.storage.clear = async () => await Promise.all((await listValues()).map(async k => await deleteValue(k)));
 
@@ -101,6 +110,45 @@ var GOCHUTIL = GOCHUTIL || {};
         scr.setAttribute('type', 'text/javascript');
         scr.innerHTML = gochutil_injectjs;
         document.documentElement?.appendChild(scr);
+    }
+
+    _.coFetchHtml = (url, option) => {
+        let headers = {};
+        if (option?.cache == "force-cache") {
+            headers["Cache-Control"] = "max-age=public, max-age=604800, immutable";
+        };
+        return new Promise((resolve, reject) => {
+            gmXmlhttpRequest({
+                method: "GET",
+                url: url,
+                headers: headers,
+                responseType: "arraybuffer",
+                onload: resp => {
+                    if (200 <= resp.status && resp.status < 300) {
+                        let ab = resp.response;
+                        let charset = resp.responseHeaders.match(/charset=([a-zA-Z0-9_\-]+)/m)?.[1] ?? "UTF-8";
+                        let html = new TextDecoder(charset).decode(ab);
+                        let mMeta = html.match(/<meta .*charset=([a-zA-Z0-9_\-]+)/i);
+                        if (mMeta && mMeta[1] != charset) {
+                            // HTMLのMetaタグで指定されていて、Headerのcharsetと違うので読み直し.
+                            html = new TextDecoder(mMeta[1]).decode(ab);
+                        }
+                        resolve(new DOMParser().parseFromString(html, "text/html"));
+                    } else {
+                        reject(new Error(`http status error. response http status code : ${resp.status}`));
+                    }
+                },
+                onerror: err => {
+                    reject(err);
+                },
+                onabort: _ => {
+                    reject(new Error("aborted"));
+                },
+                ontimeout: _ => {
+                    reject(new Error("timeouted"));
+                }
+            })
+        });
     }
 
     $(function () {
@@ -151,8 +199,8 @@ var GOCHUTIL = GOCHUTIL || {};
             $("#gochutil_option_view").css("display", "none");
         });
 
-        $("body").append($optionView);
-        $("body").append($settingLink);
+        setTimeout(() => $("body").append($optionView), 0);
+        setTimeout(() => $("body").append($settingLink), 0);
 
         $settingLink.css("top", top);
         $settingLink.css("right", right);

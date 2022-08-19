@@ -32,6 +32,17 @@ var GOCHUTIL = GOCHUTIL || {};
         scr.setAttribute('src', b.runtime.getURL('js/5chutil_inject.js'));
         document.documentElement?.appendChild(scr);
     };
+
+    _.coFetchHtml = async (url, option) => {
+        let resp = await b.runtime.sendMessage({ function: "coFetchHtml", params: { url: url, option: option } });
+        if (resp.reject) {
+            throw new Error(resp.reject.message);
+        }
+        if (!resp.resolve.ok) {
+            throw new Error(`http status error. response http status code : ${resp.resolve.status}`);
+        }
+        return new DOMParser().parseFromString(resp.resolve.html, "text/html");
+    }
     // ==================
 
 }(this));

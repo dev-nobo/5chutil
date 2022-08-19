@@ -23,6 +23,9 @@
         initializeCheckboxSetting("closeOtherPopupOnClick");
         initializeCheckboxSetting("pinnablePopup");
         initializeCheckboxSetting("fixOnPinned");
+        initializeCheckboxSetting("showOpenLeft");
+        initializeCheckboxSetting("persistLeftPaneStat");
+        initializeCheckboxSetting("floatFeature");
 
         let initializeNumberSetting = (propName) => {
             let $input = $(`input.app.${propName}`);
@@ -65,6 +68,8 @@
         $("button.app.reset").off("click");
         $("button.app.reset").on("click", async function () {
             await _.settings.app.reset();
+            await _.settings.ui.reset();
+            await _.bbsmenu.reset();
             _.initOptions();
         });
 
