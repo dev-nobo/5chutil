@@ -4524,7 +4524,7 @@ var GOCHUTIL = GOCHUTIL || {};
                 $table.find(`tbody tr td.text_cell a`).toArray()
                     .filter(e => e.textContent?.toLowerCase().indexOf(word) >= 0)
                     .forEach(e => {
-                        e.innerHTML = e.innerHTML.replaceAll(rWord, `<span class="ref_mark">$&</span>`);
+                        $(e).html($(e).html().replaceAll(rWord, `<span class="ref_mark">$&</span>`));
                         $(e).closest("tr").addClass("hit");
                     });
             } else {

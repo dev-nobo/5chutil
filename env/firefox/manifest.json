@@ -32,6 +32,6 @@
     "browser_style": true
   },
   "background": {
-    "scripts": ["env_module.js", "js/background.js"]
+    "scripts": ["js/background.js"]
   }
 }
