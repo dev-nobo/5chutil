@@ -1,6 +1,6 @@
 var GOCHUTIL = GOCHUTIL || {};
 (function (global) {
-    let _ = GOCHUTIL;
+    const _ = GOCHUTIL;
     _.classes = {};
 
     _.classes.setting = function (key, initValue = {}) {
@@ -14,7 +14,7 @@ var GOCHUTIL = GOCHUTIL || {};
     let yyToYYYY = yy => {
         if (!yy) return;
         let y100 = Math.floor(new Date().getFullYear() / 100) * 100;
-        return ((new Date().getFullYear() % 100 ) < parseInt(yy)) ? y100 : y100 - 100;
+        return ((new Date().getFullYear() % 100) < parseInt(yy)) ? y100 : y100 - 100;
     };
 
     Object.defineProperty(Date.prototype, "format", {
@@ -347,24 +347,40 @@ var GOCHUTIL = GOCHUTIL || {};
             }
         },
 
+        _cacheUrl: {},
         parseUrl: function (url) {
-            let mThreadUrl = url.match(/(?<protocol>https?):\/\/(?<subDomain>[^./]+?)\.(?<domain>[^./]+\.[^./]+?)\/test\/read.cgi\/(?<boardId>[^/]+)\/(?<threadId>[0-9]{10}).*/);
-            let mTopUrl = url.match(/(?<protocol>https?):\/\/(?<subDomain>[^./]+?)\.(?<domain>[^./]+\.[^./]+?)\/(?<boardId>[^/]+?)\/(\?.*|)$/);
-            let mSubbackUrl = url.match(/(?<protocol>https?):\/\/(?<subDomain>[^./]+?)\.(?<domain>[^./]+\.[^./]+?)\/(?<boardId>[^/]+?)\/subback.html/);
-            let pat = [{ m: mThreadUrl, type: "thread", toUrl: "toThread" }, { m: mTopUrl, type: "top", toUrl: "toTop" }, { m: mSubbackUrl, type: "subback", toUrl: "toSubback" }].find(e => e.m);
-            if (!pat) {
+            const origUrl = url;
+            if (this._cacheUrl[origUrl] !== undefined) {
+                return this._cacheUrl[origUrl] ?? undefined;
+            }
+            if (!url.match(/^https?:\/\/([^./]+?\.5ch\.net)/)) {
+                this._cacheUrl[origUrl] = null;
                 return;
             }
-            let ret = ["protocol", "subDomain", "boardId", "threadId", "domain"].reduce((p, c) => (p[c] = pat.m.groups[c], p), {});
+            if (url.indexOf("?") > -1) {
+                url = url.slice(0, url.indexOf("?"));
+            }
+            let mThreadUrl = url.match(/^(?<protocol>https?):\/\/(?<subDomain>[^./]+?)\.(?<domain>[^./]+\.[^./]+?)\/test\/read.cgi\/(?<boardId>[^/]+)\/(?<threadId>[0-9]{10})(\/(?<resLink>(l(?<last>[0-9]{1,3})|(?<from>[0-9]{0,3})-(?<to>[0-9]{0,3})|(?<num>[0-9]{1,3}))(?<without1>[nN]?))|.*)/);
+            let mTopUrl = url.match(/^(?<protocol>https?):\/\/(?<subDomain>[^./]+?)\.(?<domain>[^./]+\.[^./]+?)\/(?<boardId>[^/]+?)\/(\?.*|)$/);
+            let mSubbackUrl = url.match(/^(?<protocol>https?):\/\/(?<subDomain>[^./]+?)\.(?<domain>[^./]+\.[^./]+?)\/(?<boardId>[^/]+?)\/subback.html$/);
+            let pat = [{ m: mThreadUrl, type: "thread", toUrl: "toThread" }, { m: mTopUrl, type: "top", toUrl: "toTop" }, { m: mSubbackUrl, type: "subback", toUrl: "toSubback" }].find(e => e.m);
+            if (!pat) {
+                this._cacheUrl[origUrl] = null;
+                return;
+            }
+            let ret = ["protocol", "subDomain", "boardId", "threadId", "domain", "resLink", "last", "from", "to", "num", "without1"].reduce((p, c) => (p[c] = pat.m.groups[c], p), {});
             ret.type = pat.type;
             ret.toUrl = pat.toUrl;
+            ret.without1 = ret.without1 ? true : false;
             ret.origin = new URL(url).origin;
             ret.toSubback = function () { return `${this.toTop()}subback.html`; };
             ret.toTop = function () { return `${this.protocol}://${this.subDomain}.${this.domain}/${this.boardId}/`; };
             ret.toThread = function (threadId) { return `${this.protocol}://${this.subDomain}.${this.domain}/test/read.cgi/${this.boardId}/${threadId ?? this.threadId}/`; };
+            ret.toResUrl = function (threadId, resLink) { return this.toThread(threadId) + (resLink ?? this.resLink ?? "1"); };
             ret.normalize = function () {
                 return this[this.toUrl]();
             };
+            this._cacheUrl[origUrl] = ret;
             return ret;
         },
 
@@ -639,7 +655,7 @@ var GOCHUTIL = GOCHUTIL || {};
                 return await this.load();
             }
         },
-        reset: async function(){
+        reset: async function () {
             this.settings.reset();
         },
         load: async function () {
@@ -653,7 +669,7 @@ var GOCHUTIL = GOCHUTIL || {};
                     genre: e.prevElemAll().find(e => e.tagName.toLowerCase() == "b")?.textContent
                 }))
                 .filter(e => e.parsedUrl && e.parsedUrl.domain == "5ch.net") // bbspink は除外.
-                .map(e => ({ url: e.parsedUrl.normalize(), name: e.name, genre: e.genre, subDomain: e.parsedUrl.subDomain, domain: e.parsedUrl.domain, boardId: e.parsedUrl.boardId, originalUrl: e.url}))
+                .map(e => ({ url: e.parsedUrl.normalize(), name: e.name, genre: e.genre, subDomain: e.parsedUrl.subDomain, domain: e.parsedUrl.domain, boardId: e.parsedUrl.boardId, originalUrl: e.url }))
                 .reduce((p, c) => {
                     let boards = [];
                     if (p.length == 0 || p[p.length - 1].name != c.genre) {

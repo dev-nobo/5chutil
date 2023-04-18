@@ -9,7 +9,7 @@
 // @match        *://*.5ch.net/*/
 // @match        *://*.5ch.net/*/?*
 // @connect      5ch.net
-// @grant        GM_getValue1
+// @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_listValues
 // @grant        GM_deleteValue
@@ -128,7 +128,7 @@ var GOCHUTIL = GOCHUTIL || {};
                         let ab = resp.response;
                         let charset = resp.responseHeaders.match(/charset=([a-zA-Z0-9_\-]+)/m)?.[1] ?? "UTF-8";
                         let html = new TextDecoder(charset).decode(ab);
-                        let mMeta = html.match(/<meta .*charset=([a-zA-Z0-9_\-]+)/i);
+                        let mMeta = html.match(/<meta .*charset="?([a-zA-Z0-9_\-]+)"?/i);
                         if (mMeta && mMeta[1] != charset) {
                             // HTMLのMetaタグで指定されていて、Headerのcharsetと違うので読み直し.
                             html = new TextDecoder(mMeta[1]).decode(ab);

@@ -1,8 +1,8 @@
 (() => {
     'use strict';
-    let finished = false;
+    let completed = false;
     let override = () => {
-        if (typeof jQuery === "undefined" || finished) return;
+        if (typeof jQuery === "undefined" || completed) return;
         let jq = jQuery;
         (() => {
             // 不要なイベント.
@@ -54,7 +54,7 @@
                 }
             }
         })();
-        finished = true;
+        completed = true;
     };
 
     // このタイミングではjQueryオブジェクトが生成されてない場合もあるので、DOMContentLoaded でも再トライ.

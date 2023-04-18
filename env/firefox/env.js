@@ -39,7 +39,9 @@ var GOCHUTIL = GOCHUTIL || {};
             throw new Error(resp.reject.message);
         }
         if (!resp.resolve.ok) {
-            throw new Error(`http status error. response http status code : ${resp.resolve.status}`);
+            let e = new Error(`http status error. response http status code : ${resp.resolve.status}`);
+            e.status = resp.resolve.status;
+            throw e;
         }
         return new DOMParser().parseFromString(resp.resolve.html, "text/html");
     }

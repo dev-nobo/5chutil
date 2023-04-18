@@ -9,7 +9,7 @@
 // @match        *://*.5ch.net/*/
 // @match        *://*.5ch.net/*/?*
 // @connect      5ch.net
-// @grant        GM_getValue1
+// @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_listValues
 // @grant        GM_deleteValue
@@ -109,6 +109,14 @@ var GOCHUTIL = GOCHUTIL || {};
     position: sticky;
     top: 0;
     white-space: nowrap;
+}
+
+.gochutil table.list thead th.asc a::after {
+    content: "▲";
+}
+
+.gochutil table.list thead th.desc a::after {
+    content: "▼";
 }
 
 .gochutil table.list thead tr a {
@@ -321,18 +329,23 @@ var GOCHUTIL = GOCHUTIL || {};
     border: 1px solid rgb(51, 51, 51);
     position: absolute;
     background-color: rgb(239, 239, 239);
-    padding: 3px;
     display: flex;
     flex-direction: column;
-    overflow: auto;
+    overflow: visible;
+    height: auto;
+    width: auto;
 }
 
-.gochutil.gochutilthread div.popup.top_popup{
-    z-index: 10;
+.gochutil.gochutilthread div.popup .popup_body_outer {
+    padding: 0 2px 2px 2px;
+    resize: none;
 }
 
-.gochutil.gochutilthread div.popup.resizeable {
-    resize: both;
+.gochutil.gochutilthread div.popup.pinned .popup_body_outer.resizeable {
+    resize: auto;
+}
+
+.gochutil.gochutilthread div.popup.top_popup {
 }
 
 .gochutil.gochutilthread div.popup .innerContainer {
@@ -352,14 +365,16 @@ var GOCHUTIL = GOCHUTIL || {};
     font-size: 13px;
     font-family: monospace;
     transition: all 0.5s 0s ease;
+    border-bottom: 1px solid rgb(51, 51, 51);
+    padding: 2px;
 }
 
-.gochutil.gochutilthread div.popup.pinned div.popup_header {
+.gochutil.gochutilthread div.popup.pinned > div.popup_header {
     background-color: #ccf;
     color: black;
 }
 
-.gochutil.gochutilthread div.popup.moveable div.popup_header {
+.gochutil.gochutilthread div.popup.moveable > div.popup_header {
     cursor: grab;
 }
 
@@ -634,7 +649,7 @@ var GOCHUTIL = GOCHUTIL || {};
 .gochutil.gochutilthread div.left_pane div.board_pane{
     position: relative;
     overflow: hidden;
-    border: 1px #aaa solid;
+    border-top: 1px #aaa solid;
     width: 200px;
     flex-grow: 1;
 }
@@ -781,12 +796,17 @@ var GOCHUTIL = GOCHUTIL || {};
     transition: height 0.4s 0s ease-out;
 }
 
-.gochutil.gochutilthread #thread_list{
+.gochutil.gochutilthread #thread_list .resizeable{
     min-width: 300px;
     min-height: 300px;
 }
 
-.gochutil.gochutilthread #bookmark {
+.gochutil.gochutilthread #bookmark .resizeable{
+    min-width: 400px;
+    min-height: 200px;
+}
+
+.gochutil.gochutilthread #history .resizeable{
     min-width: 400px;
     min-height: 200px;
 }
@@ -862,29 +882,38 @@ var GOCHUTIL = GOCHUTIL || {};
 .gochutil.gochutilthread .top_container .top_pane .top_pane_header {
     background-color: #ddd;
     color: black;
-    line-height: 17px;
-    font-size: 15px;
+    line-height: 15px;
+    font-size: 13px;
     font-family: monospace;
     border-bottom: 1px solid #aaa;
+    padding: 2px;
 }
 
 .gochutil.gochutilthread .top_container .top_pane .top_pane_body_outer {
-    resize: vertical;
-    overflow: hidden;
     min-height: 100px;
     max-height: 80vh;
-    padding: 0 2px 2px 2px;
+    padding: 0px 2px 2px 2px;
+    width: auto;
 }
 
-.gochutil.gochutilthread .top_container .top_pane .top_pane_body_outer .top_pane_body_inner {
+.gochutil.gochutilthread .top_container .top_pane .top_pane_body {
+    height: 100%;
+}
+
+.gochutil.gochutilthread .scrollable {
+    overflow: auto;
+}
+
+.gochutil.gochutilthread .scrollable.vertical {
     overflow-y: scroll;
-    height: 100%;
-    width: 100%;
 }
 
-.gochutil.gochutilthread .top_container .top_pane .top_pane_body_outer .top_pane_body_inner .top_pane_body {
-    height: 100%;
-    width: 100%;
+.gochutil.gochutilthread .resizeable {
+    resize: both;
+}
+
+.gochutil.gochutilthread .resizeable.vertical {
+    resize: vertical;
 }
 
 .gochutil.gochutilthread .loader {
@@ -1515,9 +1544,9 @@ span.notes {
     const gochutil_injectjs = function () {/*
 (() => {
     'use strict';
-    let finished = false;
+    let completed = false;
     let override = () => {
-        if (typeof jQuery === "undefined" || finished) return;
+        if (typeof jQuery === "undefined" || completed) return;
         let jq = jQuery;
         (() => {
             // 不要なイベント.
@@ -1569,7 +1598,7 @@ span.notes {
                 }
             }
         })();
-        finished = true;
+        completed = true;
     };
 
     // このタイミングではjQueryオブジェクトが生成されてない場合もあるので、DOMContentLoaded でも再トライ.
@@ -1605,7 +1634,7 @@ span.notes {
                         let ab = resp.response;
                         let charset = resp.responseHeaders.match(/charset=([a-zA-Z0-9_\-]+)/m)?.[1] ?? "UTF-8";
                         let html = new TextDecoder(charset).decode(ab);
-                        let mMeta = html.match(/<meta .*charset=([a-zA-Z0-9_\-]+)/i);
+                        let mMeta = html.match(/<meta .*charset="?([a-zA-Z0-9_\-]+)"?/i);
                         if (mMeta && mMeta[1] != charset) {
                             // HTMLのMetaタグで指定されていて、Headerのcharsetと違うので読み直し.
                             html = new TextDecoder(mMeta[1]).decode(ab);
@@ -1689,7 +1718,7 @@ span.notes {
 
 var GOCHUTIL = GOCHUTIL || {};
 (function (global) {
-    let _ = GOCHUTIL;
+    const _ = GOCHUTIL;
     _.classes = {};
 
     _.classes.setting = function (key, initValue = {}) {
@@ -1703,7 +1732,7 @@ var GOCHUTIL = GOCHUTIL || {};
     let yyToYYYY = yy => {
         if (!yy) return;
         let y100 = Math.floor(new Date().getFullYear() / 100) * 100;
-        return ((new Date().getFullYear() % 100 ) < parseInt(yy)) ? y100 : y100 - 100;
+        return ((new Date().getFullYear() % 100) < parseInt(yy)) ? y100 : y100 - 100;
     };
 
     Object.defineProperty(Date.prototype, "format", {
@@ -2036,24 +2065,40 @@ var GOCHUTIL = GOCHUTIL || {};
             }
         },
 
+        _cacheUrl: {},
         parseUrl: function (url) {
-            let mThreadUrl = url.match(/(?<protocol>https?):\/\/(?<subDomain>[^./]+?)\.(?<domain>[^./]+\.[^./]+?)\/test\/read.cgi\/(?<boardId>[^/]+)\/(?<threadId>[0-9]{10}).*/);
-            let mTopUrl = url.match(/(?<protocol>https?):\/\/(?<subDomain>[^./]+?)\.(?<domain>[^./]+\.[^./]+?)\/(?<boardId>[^/]+?)\/(\?.*|)$/);
-            let mSubbackUrl = url.match(/(?<protocol>https?):\/\/(?<subDomain>[^./]+?)\.(?<domain>[^./]+\.[^./]+?)\/(?<boardId>[^/]+?)\/subback.html/);
-            let pat = [{ m: mThreadUrl, type: "thread", toUrl: "toThread" }, { m: mTopUrl, type: "top", toUrl: "toTop" }, { m: mSubbackUrl, type: "subback", toUrl: "toSubback" }].find(e => e.m);
-            if (!pat) {
+            const origUrl = url;
+            if (this._cacheUrl[origUrl] !== undefined) {
+                return this._cacheUrl[origUrl] ?? undefined;
+            }
+            if (!url.match(/^https?:\/\/([^./]+?\.5ch\.net)/)) {
+                this._cacheUrl[origUrl] = null;
                 return;
             }
-            let ret = ["protocol", "subDomain", "boardId", "threadId", "domain"].reduce((p, c) => (p[c] = pat.m.groups[c], p), {});
+            if (url.indexOf("?") > -1) {
+                url = url.slice(0, url.indexOf("?"));
+            }
+            let mThreadUrl = url.match(/^(?<protocol>https?):\/\/(?<subDomain>[^./]+?)\.(?<domain>[^./]+\.[^./]+?)\/test\/read.cgi\/(?<boardId>[^/]+)\/(?<threadId>[0-9]{10})(\/(?<resLink>(l(?<last>[0-9]{1,3})|(?<from>[0-9]{0,3})-(?<to>[0-9]{0,3})|(?<num>[0-9]{1,3}))(?<without1>[nN]?))|.*)/);
+            let mTopUrl = url.match(/^(?<protocol>https?):\/\/(?<subDomain>[^./]+?)\.(?<domain>[^./]+\.[^./]+?)\/(?<boardId>[^/]+?)\/(\?.*|)$/);
+            let mSubbackUrl = url.match(/^(?<protocol>https?):\/\/(?<subDomain>[^./]+?)\.(?<domain>[^./]+\.[^./]+?)\/(?<boardId>[^/]+?)\/subback.html$/);
+            let pat = [{ m: mThreadUrl, type: "thread", toUrl: "toThread" }, { m: mTopUrl, type: "top", toUrl: "toTop" }, { m: mSubbackUrl, type: "subback", toUrl: "toSubback" }].find(e => e.m);
+            if (!pat) {
+                this._cacheUrl[origUrl] = null;
+                return;
+            }
+            let ret = ["protocol", "subDomain", "boardId", "threadId", "domain", "resLink", "last", "from", "to", "num", "without1"].reduce((p, c) => (p[c] = pat.m.groups[c], p), {});
             ret.type = pat.type;
             ret.toUrl = pat.toUrl;
+            ret.without1 = ret.without1 ? true : false;
             ret.origin = new URL(url).origin;
             ret.toSubback = function () { return `${this.toTop()}subback.html`; };
             ret.toTop = function () { return `${this.protocol}://${this.subDomain}.${this.domain}/${this.boardId}/`; };
             ret.toThread = function (threadId) { return `${this.protocol}://${this.subDomain}.${this.domain}/test/read.cgi/${this.boardId}/${threadId ?? this.threadId}/`; };
+            ret.toResUrl = function (threadId, resLink) { return this.toThread(threadId) + (resLink ?? this.resLink ?? "1"); };
             ret.normalize = function () {
                 return this[this.toUrl]();
             };
+            this._cacheUrl[origUrl] = ret;
             return ret;
         },
 
@@ -2328,7 +2373,7 @@ var GOCHUTIL = GOCHUTIL || {};
                 return await this.load();
             }
         },
-        reset: async function(){
+        reset: async function () {
             this.settings.reset();
         },
         load: async function () {
@@ -2342,7 +2387,7 @@ var GOCHUTIL = GOCHUTIL || {};
                     genre: e.prevElemAll().find(e => e.tagName.toLowerCase() == "b")?.textContent
                 }))
                 .filter(e => e.parsedUrl && e.parsedUrl.domain == "5ch.net") // bbspink は除外.
-                .map(e => ({ url: e.parsedUrl.normalize(), name: e.name, genre: e.genre, subDomain: e.parsedUrl.subDomain, domain: e.parsedUrl.domain, boardId: e.parsedUrl.boardId, originalUrl: e.url}))
+                .map(e => ({ url: e.parsedUrl.normalize(), name: e.name, genre: e.genre, subDomain: e.parsedUrl.subDomain, domain: e.parsedUrl.domain, boardId: e.parsedUrl.boardId, originalUrl: e.url }))
                 .reduce((p, c) => {
                     let boards = [];
                     if (p.length == 0 || p[p.length - 1].name != c.genre) {
@@ -2385,11 +2430,12 @@ var GOCHUTIL = GOCHUTIL || {};
 
 
 (async function (global) {
-    var _ = GOCHUTIL;
+    const _ = GOCHUTIL;
     _.$ = _.$ || jQuery?.noConflict?.(true);
-    let $ = _.$;
+    const $ = _.$;
 
-    let parsedUrl = _.util.parseUrl(location.href);
+    const parsedUrl = _.util.parseUrl(location.href);
+    const normalizedUrl = parsedUrl.normalize();
 
     // データのフェッチ.
     let fetchHtml = async (url, option) => {
@@ -2488,6 +2534,14 @@ var GOCHUTIL = GOCHUTIL || {};
         });
 
         $table.data("sort-func", sort);
+
+        $table.data("sort-by-func", (idx, asc) => {
+            if (0 <= idx && idx < $thead.find("th").length) {
+                $thead.find("th").removeClass("asc").removeClass("desc");
+                $thead.find("th").eq(idx).addClass(asc ? "asc" : "desc");
+                sort();
+            }
+        });
     }
 
     let buildThreadTable = (threads, $table) => {
@@ -2496,7 +2550,7 @@ var GOCHUTIL = GOCHUTIL || {};
             $thead = $("<thead></thead>").appendTo($table);
             $thead.append(`
             <tr>
-                <th class="number_cell int number_col"><a href="javascript:void(0);">No.</a></th>
+                <th class="number_cell int number_col asc"><a href="javascript:void(0);">No.</a></th>
                 <th class="text_cell name_col"><a href="javascript:void(0);">名前</a></th>
                 <th class="number_cell int res_count_col"><a href="javascript:void(0);">レス数</a></th>
                 <th class="number_cell int ikioi_col"><a href="javascript:void(0);">勢い</a></th>
@@ -2547,7 +2601,7 @@ var GOCHUTIL = GOCHUTIL || {};
                 <th class="text_cell name_col"><a href="javascript:void(0);">名前</a></th>
                 <th class="number_cell int res_count_col"><a href="javascript:void(0);">レス数</a></th>
                 <th class="number_cell int ikioi_col"><a href="javascript:void(0);">勢い</a></th>
-                <th class="number_cell int similarity_col"><a href="javascript:void(0);">類似度(最大1)</a></th>
+                <th class="number_cell similarity_col desc"><a href="javascript:void(0);">類似度(最大1)</a></th>
                 <th class="date_cell since_col"><a href="javascript:void(0);">スレ作成日時</a></th>
             </tr>`);
             tableSort($table);
@@ -2586,7 +2640,6 @@ var GOCHUTIL = GOCHUTIL || {};
         return $table;
     };
 
-
     let buildBookmarkTable = (bookmarks, $table) => {
         let $thead = $table.find("thead");
         if ($thead.length == 0) {
@@ -2599,7 +2652,7 @@ var GOCHUTIL = GOCHUTIL || {};
                     <th class="number_cell int ikioi_col"><a href="javascript:void(0);">勢い</a></th>
                     <th class="date_cell first_comment_date_col"><a href="javascript:void(0);">スレ開始日時</a></th>
                     <th class="date_cell last_comment_date_col"><a href="javascript:void(0);">最新レス日時</a></th>
-                    <th class="date_cell register_date_col"><a href="javascript:void(0);">ブックマーク登録日時</a></th>
+                    <th class="date_cell register_date_col asc"><a href="javascript:void(0);">ブックマーク登録日時</a></th>
                     <th class="date_cell update_date_col"><a href="javascript:void(0);">更新確認日時</a></th>
                     <th class="text_cell update_col"><a href="javascript:void(0);">更新確認</a></th>
                     <th class="text_cell delete_col"><a href="javascript:void(0);">削除</a></th>
@@ -2613,10 +2666,11 @@ var GOCHUTIL = GOCHUTIL || {};
         $tbody.find("tr").addClass("not_exist");
         bookmarks.map(rec => {
             let $tr = $tbody.find(`tr[data-url="${rec.url}"]`).length == 0 ? $("<tr>").attr("data-url", rec.url) : $tbody.find(`tr[data-url="${rec.url}"]`);
+            // "title": `${$tr.find("td.name_col a").text()} : ${parseInt($tr.find("td.res_count_col").text()) - parseInt($tr.find("td.inc_res_count_col a").text()) + 1}-${$tr.find("td.res_count_col").text()}`,
             let contents = [
                 `<a href="${rec.url}l50">${rec.title}</a>`,
                 `${rec.resCount}`,
-                rec.resCount == rec.lastResCount ? `0` : `<a class="bookmark_new_res_count" href="${rec.url}${rec.lastResCount + 1}-${rec.resCount}n">${rec.resCount - rec.lastResCount}</a>`,
+                rec.resCount == rec.lastResCount ? `0` : `<a class="ext_reply_link new_replies" data-thread-url="${rec.url}" data-popup-title="${rec.title} : ${rec.lastResCount + 1}-${rec.resCount}" href="${rec.url}${rec.lastResCount + 1}-${rec.resCount}n">${rec.resCount - rec.lastResCount}</a>`,
                 `${ikioi(_.util.parseUrl(rec.url).threadId, rec.resCount)}`,
                 `${formatDate(rec.firstCommentDate)}`,
                 `${formatDate(rec.lastCommentDate)}`,
@@ -2687,6 +2741,9 @@ var GOCHUTIL = GOCHUTIL || {};
     };
 
     let thread = () => {
+        if ($(".thread .post").length == 0) {
+            return;
+        }
         const rName = /^<b>(.*?) *<\/b>/;
         const rTrip = /(◆[./0-9A-Za-z]{8,12})/;
         const rSlip = /\((.+? ([*A-Za-z0-9+/]{4}-[*A-Za-z0-9+/=]{4}).*?)\)/;
@@ -2694,18 +2751,17 @@ var GOCHUTIL = GOCHUTIL || {};
         const rIp = /([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/;
         const rUid = /^ID:([^ ]{8,16})$/;
         const rDate = /^([0-9]{4}\/[0-9]{2}\/[0-9]{2}).*$/;
-        const rReplyHref = /\/([0-9]{1,3})$/;
-        const rAnotherThreadHref = new RegExp(`(https?:\/\/${location.hostname.replace(".", "\.")}\/test\/read.cgi\/[^/]+\/[0-9]+\/)$`);
-
-        const threadUrl = ($("#zxcvtypo").val().startsWith("//") ? location.protocol : "") + $("#zxcvtypo").val() + "/";
+        const rReplyHref1 = /\/((?<from>[0-9]{1,3})\-|)(?<to>[0-9]{1,3})$/;
 
         $("html").addClass("gochutilthread");
+        $(".thread").attr("data-url", normalizedUrl);
 
         let postValueCache = {};
 
         // _.injectJs();
 
         let getPostId = ($post) => $post.attr("data-id");
+        let getThreadUrl = ($post) => $post.closest(".thread").attr("data-url");
 
         let addStyle = ($html, css) => {
             let $body = $html.find('body');
@@ -2724,6 +2780,20 @@ var GOCHUTIL = GOCHUTIL || {};
 
         if (_.settings.app.get().deleteSelectors) {
             _.settings.app.get().deleteSelectors.replace(/\r\n|\r/g, "\n").split("\n").filter(l => l).forEach(l => $(l).remove());
+        }
+
+
+        let parseReplyLink = ($a) => {
+            let m = $a.attr("href").match(rReplyHref1);
+            if (!m) {
+                return [];
+            } else if (!m.groups.from) {
+                return [m.groups.to];
+            } else {
+                let from = Math.min(parseInt(m.groups.from), parseInt(m.groups.to));
+                let to = Math.max(parseInt(m.groups.from), parseInt(m.groups.to));
+                return Array.from({ length: to - from + 1 }, (_, i) => from + i);
+            }
         }
 
         // 投稿データの解析 <div class="post">.
@@ -2746,10 +2816,7 @@ var GOCHUTIL = GOCHUTIL || {};
             let koro2 = mValue(slip?.match(rKoro2));
             let ip = mValue(slip?.match(rIp));
 
-            let refPostId = $msg.find(".reply_link").toArray().map(a => {
-                let match = $(a).attr("href").match(rReplyHref);
-                return match && match[1];
-            });
+            let refPostId = $msg.find(".reply_link").toArray().flatMap(a => parseReplyLink($(a)));
 
             let dateAndID = undefined;
 
@@ -2778,10 +2845,13 @@ var GOCHUTIL = GOCHUTIL || {};
         // 解析データの取得.
         let getPostValue = ($post) => {
             let postId = getPostId($post);
-            if (!postValueCache[postId]) {
-                postValueCache[postId] = parsePost($post);
+            let threadUrl = getThreadUrl($post);
+            let postKey = threadUrl + postId;
+            if (!postValueCache[postKey]) {
+                postValueCache[postKey] = parsePost($post);
+                postValueCache[postKey].threadUrl = threadUrl;
             }
-            return postValueCache[postId];
+            return postValueCache[postKey];
         }
 
         // 投稿データがNGか判定.
@@ -2799,7 +2869,7 @@ var GOCHUTIL = GOCHUTIL || {};
                 },
                 message: function () {
                     if (this.any()) {
-                        let ngMsgs = [[this.name, "Name"], [this.trip, "Trip"], [this.slip, "SLIP Regex"], [this.koro2, "Korokoro2(SLIP)"], [this.ip, "IP(SLIP)"], [this.id, "ID and Date"], [this.word, "Word"]];
+                        let ngMsgs = [[this.name, "Name"], [this.trip, "Trip"], [this.slip, "SLIP Regex"], [this.koro2, "Korokoro(SLIP)"], [this.ip, "IP(SLIP)"], [this.id, "ID and Date"], [this.word, "Word"]];
                         return ngMsgs.filter(v => v[0]).map(v => v[1]).join(", ") + "によりNG";
                     }
                 }
@@ -2944,6 +3014,7 @@ var GOCHUTIL = GOCHUTIL || {};
                     $a.attr("href", href.slice(redirectorUrl.length));
                     $a.attr("data-original-referrerpolicy", $a.attr("referrerpolicy") ?? "");
                     $a.attr("referrerpolicy", "no-referrer");
+                    $a.attr("rel", "noopener noreferrer");
                 }
             });
 
@@ -3009,45 +3080,47 @@ var GOCHUTIL = GOCHUTIL || {};
             });
 
             // MailTo を別Link化
-            let meta = $meta.html();
-            meta = meta.replace(/(<span class="name">)(.+?)(<\/span>)/, function (match, c1, c2, c3) {
-                let spanName = c2;
-                let m = spanName.match(/<a href="(.*?)">(.*?)<\/a>/);
-                let after = "";
-                if (m) {
-                    let href = m[1];
-                    if (!href) {
-                        after = `<span class="mail"></span>`;
-                    } else if (href == "mailto:sage") {
-                        after = `<span class="mail">[sage]</span>`;
-                    } else {
-                        after = `<span class="mail"><a href="${href}">[Mail]</a></span>`;
-                    }
+            let $spanName = $meta.find("span.name");
+            let spanName = $spanName.html();
+
+            let m = spanName.match(/<a href="(.*?)">(.*?)<\/a>/);
+            let after = "";
+            if (m) {
+                let href = m[1];
+                if (!href) {
+                    after = `<span class="mail"></span>`;
+                } else if (href == "mailto:sage") {
+                    after = `<span class="mail">[sage]</span>`;
+                } else {
+                    after = `<span class="mail"><a href="${href}">[Mail]</a></span>`;
                 }
-                spanName = spanName
-                    .replaceAll(/<a href="(.*?)">(.*?)<\/a>/g, "$2")
-                    .replaceAll(/<small>(.*?)<\/small>/g, "$1");
-                return c1 + spanName + c3 + after;
-            });
-            $meta.html(meta);
+            }
+            spanName = spanName
+                .replaceAll(/<a href="(.*?)">(.*?)<\/a>/g, "$2")
+                .replaceAll(/<small>(.*?)<\/small>/g, "$1");
+            $spanName.html(spanName);
+            $spanName.after(after);
 
             // reply link のリンク先のID設定.
             $msg.find(".reply_link").each((i, e) => {
                 let $a = $(e);
                 if (!$a.attr("data-href-id")) {
-                    let match = $a.attr("href").match(rReplyHref);
-                    let replyPid = match && match[1];
-                    $a.attr("data-href-id", replyPid);
+                    let pids = parseReplyLink($a);
+                    $a.attr("data-href-id", JSON.stringify(pids));
+                    $a.attr("data-href-id-url-suffix", (pids.length <= 1 ? pids?.first() ?? "" : pids.first() + "-" + pids.last()));
+                    $a.attr("data-href-id-url-suffix-strict", (pids.length < 1 ? "" : pids.first() + "-" + pids.last() + "n"));
                 }
             });
 
             // 別スレへのリンク.
-            $msg.find("a").not(".reply_link").not(".ref_another_thread").each((i, e) => {
+            $msg.find("a").not(".reply_link").each((i, e) => {
                 let $a = $(e);
-                let match = $a.attr("href")?.match(rAnotherThreadHref);
-                if (match) {
-                    $a.addClass("ref_another_thread");
-                    $a.attr("data-href-thread", match[1]);
+                let parsedHref = _.util.parseUrl($a.attr("href"));
+                if (parsedHref?.type == "thread") {
+                    $a.addClass("ext_reply_link ext_thread")
+                        .attr("data-thread-url", parsedHref.normalize())
+                        .attr("data-popup-title", `${parsedHref.normalize()} : >>${parsedHref.resLink ?? "1"}`)
+                        .attr("data-popup-url", parsedHref.normalize() + (parsedHref.resLink ?? "1"))
                 }
             });
 
@@ -3058,6 +3131,7 @@ var GOCHUTIL = GOCHUTIL || {};
                 let $a = $(e);
                 let imgUrl = $a.attr("href");
                 if (imgUrl.match(/\.(gif|jpg|jpeg|tiff|png)/i)) {
+                    $a.addClass("img");
                     blobToBase64(new Blob([imgUrl]))
                         .then(b64Url => fetchDataUrl(`https://thumb1.5ch.net/thumbnails/${location.hostname.split(".")[0]}/${b64Url.substr(b64Url.length - 250)}.png?imagelink=${encodeURIComponent(imgUrl)}`))
                         .then(dataUrl => {
@@ -3065,7 +3139,14 @@ var GOCHUTIL = GOCHUTIL || {};
                             let $thumbnail = $("<a>").addClass("thumbnail_gochutil").attr("href", "javascript:void(0);").attr("data-href", $a.attr("href"));
                             $thumbnail.html("").append($("<div></div>").addClass("thumb5ch gochutil").append($("<img></img>").addClass("thumb_i").attr("src", dataUrl)));
                             $a.after($thumbnail).after("<br>");
-                            replaceAllPopup();
+                            let $parentPopup = $a.closest(".popup");
+                            if ($parentPopup.length == 0) {
+                                // 表示しているスレの場合は位置がズレるので、全てのポップアップを位置調整.
+                                replaceAllPopup();
+                            } else {
+                                // ポップアップ内の場合には、このポップアップだけリサイズ.
+                                replacePopup($parentPopup, false, false, true);
+                            }
                         }).catch(err => err.httpStatus != 202 && console.error(err))
                 }
             });
@@ -3076,7 +3157,14 @@ var GOCHUTIL = GOCHUTIL || {};
         };
 
         if (!_.settings.app.get().popupOnClick) {
-            $(document).on("click", "a.reply_link.href_id", function () { scrollToPid($(this).attr("data-href-id")); });
+            $(document).on("click", "a.reply_link.href_id", function (e) {
+                let pid = JSON.parse($(this).attr("data-href-id"))?.first();
+                if (pid && $(this).closest(".thread").attr("data-url") == normalizedUrl && pidSet.has(pid)) {
+                    e.preventDefault();
+                    scrollToPid(pid);
+                    emphasizePost(pid);
+                }
+            });
         }
 
         let scrollToPid = (pid) => {
@@ -3091,14 +3179,9 @@ var GOCHUTIL = GOCHUTIL || {};
         let emphasizePost = (pid, duration = 3000) => {
             let $p = $(`#${pid}`);
             if (pid && $p.length > 0) {
-                $p.addClass("emphasis");
-                setTimeout(() => {
-                    $p.addClass("removing");
-                    setTimeout(() => {
-                        $p.removeClass("emphasis");
-                        $p.removeClass("removing");
-                    }, 500);
-                }, duration - 500);
+                cssAnim($p, "emphasis", duration - 500)
+                    .then($e => cssAnim($e, "removing", 500))
+                    .then($e => $e.removeClass("emphasis").removeClass("removing"));
             }
         };
 
@@ -3216,14 +3299,14 @@ var GOCHUTIL = GOCHUTIL || {};
             const immidiateProcCount = 20;
             if (array.length > immidiateProcCount) {
                 // とりあえずの表示用にある程度だけ同期実行してしまう. 残りは非同期で裏で処理.
-                array.slice(0, immidiateProcCount).forEach(processThisThreadPost);
+                array.slice(0, immidiateProcCount).forEach(processPost);
                 array = array.slice(immidiateProcCount);
             }
 
             let promises = array.map($p => new Promise((resolve, reject) => {
                 setTimeout(() => {
                     try {
-                        resolve(processThisThreadPost($p));
+                        resolve(processPost($p));
                     } catch (err) {
                         reject(err);
                     }
@@ -3234,19 +3317,14 @@ var GOCHUTIL = GOCHUTIL || {};
                 await Promise.all(promises);
                 onScrollInEmbedContents()
             } catch (err) {
-                console.error(error)
+                console.error(err)
             }
         }
 
         // 投稿に対する処理.
-        let processThisThreadPost = ($post) => {
-            // Parse済みデータ取得. キャッシュしてる.
-            let value = getPostValue($post);
-            return processPost($post, value);
-        }
-
-        let processPost = ($post, value) => {
+        let processPost = ($post) => {
             initializePost($post);
+            let value = getPostValue($post);
 
             let $msg = $post.children(".message");
             let $meta = $post.children(".meta");
@@ -3277,7 +3355,7 @@ var GOCHUTIL = GOCHUTIL || {};
             }
 
             // 制御用リンク追加.
-            let createCountControlLinkTag = (map, key, cls, settingKey) => (map[key] && createControlLinkTag(cls + (map[key].length >= _.settings.app.get()[settingKey] ? " many" : ""), (map[key].indexOf(value.postId) + 1) + "/" + map[key].length.toString(), map[key].length <= 1) || "");
+            let createCountControlLinkTag = (map, key, cls, settingKey) => ((value.threadUrl == normalizedUrl && map[key] && createControlLinkTag(cls + (map[key].length >= _.settings.app.get()[settingKey] ? " many" : ""), (map[key].indexOf(value.postId) + 1) + "/" + map[key].length.toString(), map[key].length <= 1)) || "");
             let updateCountControlLink = (map, key, $span, settingKey) => {
                 if (map[key]) {
                     updateControlLink($span, (map[key].indexOf(value.postId) + 1) + "/" + map[key].length.toString(), map[key].length <= 1);
@@ -3306,50 +3384,55 @@ var GOCHUTIL = GOCHUTIL || {};
                 }
             } else {
                 // パフォーマンスのため、div.meta は htmlを直接書き換えて、DOMの更新を一度で行う.
-                let meta = $meta.html();
-                meta = meta.replace(/(<span class="name">)(.+?)(<\/span>)/, function (match, c1, c2, c3) {
-                    let spanName = c2;
-                    if (value.name) {
-                        spanName = spanName.replace(rName, "$&" + createNGControlLinkTag(matchNG.name, "ng_name", "", "NG Name"));
-                    }
-                    if (value.slip) {
-                        spanName = spanName.replace(rSlip, (match) =>
-                            match
-                                .replace(rKoro2, '<span class="koro2 gochutil_wrapper">$&</span>' + createNGControlLinkTag(matchNG.koro2, "ng_koro2", "", "NG Korokoro") + createCountControlLinkTag(koro2Map, value.koro2, "ref_koro2 count_link", "koro2ManyCount"))
-                                .replace(rIp, '<span class="ip gochutil_wrapper">$&</span>' + createNGControlLinkTag(matchNG.ip, "ng_ip", "", "NG IP") + createCountControlLinkTag(ipMap, value.ip, "ref_ip count_link", "ipManyCount"))
-                        );
-                    }
-                    if (value.trip) {
-                        spanName = spanName.replace(rTrip, "$&" + createNGControlLinkTag(matchNG.trip, "ng_trip", "", "NG Trip"));
-                    }
-                    return c1 + spanName + c3;
-                });
+                // → 5ch 側でヘッダーに処理を追加する場合があるので、meta削除一括追加処理は辞めて、可能な限りにする.(通報フォームが追加された)
+                let $spanName = $meta.find("span.name");
+                let spanName = $spanName.html();
+                if (value.name) {
+                    spanName = spanName.replace(rName, "$&" + createNGControlLinkTag(matchNG.name, "ng_name", "", "NG Name"));
+                }
+                if (value.slip) {
+                    spanName = spanName.replace(rSlip, (match) =>
+                        match
+                            .replace(rKoro2, '<span class="koro2 gochutil_wrapper">$&</span>' + createNGControlLinkTag(matchNG.koro2, "ng_koro2", "", "NG Korokoro") + createCountControlLinkTag(koro2Map, value.koro2, "ref_koro2 count_link", "koro2ManyCount"))
+                            .replace(rIp, '<span class="ip gochutil_wrapper">$&</span>' + createNGControlLinkTag(matchNG.ip, "ng_ip", "", "NG IP") + createCountControlLinkTag(ipMap, value.ip, "ref_ip count_link", "ipManyCount"))
+                    );
+                }
+                if (value.trip) {
+                    spanName = spanName.replace(rTrip, "$&" + createNGControlLinkTag(matchNG.trip, "ng_trip", "", "NG Trip"));
+                }
+                $spanName.html(spanName)
 
                 if (value.dateAndID) {
-                    meta = meta.replace(/(<span class="uid">)(.+?)(<\/span>)/, function (match, c1, c2, c3) {
-                        let spanUid = c2.replace(value.dateAndID.id, `<span class="uid_only gochutil_wrapper">$&</span>`);
-                        return c1 + spanUid + c3 + createNGControlLinkTag(matchNG.id, "ng_id", "", "NG ID") + createCountControlLinkTag(idMap, value.dateAndID.id, "ref_id count_link", "idManyCount");
-                    });
+                    let $spanUid = $meta.find("span.uid");
+                    let spanUid = $spanUid.html().replace(value.dateAndID.id, `<span class="uid_only gochutil_wrapper">$&</span>`)
+                    $spanUid.html(spanUid);
+                    $spanUid.after(createCountControlLinkTag(idMap, value.dateAndID.id, "ref_id count_link", "idManyCount"));
+                    $spanUid.after(createNGControlLinkTag(matchNG.id, "ng_id", "", "NG ID"));
                 }
 
-                if (refPostId[value.postId] && refPostId[value.postId].length > 0) {
-                    meta += createControlLinkTag("ref_posts count_link" + (refPostId[value.postId].length >= _.settings.app.get().refPostManyCount ? " many" : ""), `REF(${refPostId[value.postId].length})`);
+                if (refPostId[value.postId] && refPostId[value.postId].length > 0 && value.threadUrl == normalizedUrl) {
+                    let tag = createControlLinkTag("ref_posts count_link" + (refPostId[value.postId].length >= _.settings.app.get().refPostManyCount ? " many" : ""), `REF(${refPostId[value.postId].length})`);
+                    if ($meta.find("span.ureport").length > 0) {
+                        $meta.find("span.ureport").first().before(tag);
+                    } else {
+                        $meta.append(tag);
+                    }
                 }
-                $meta.html(meta);
+
                 $meta.attr("data-initialized", "true");
             }
 
             // replylink
             $msg.find(".reply_link").each((i, e) => {
                 let $a = $(e);
-                let replyPid = $a.attr("data-href-id");
-                let backupAttr = ["href", "target", "rel"];
-                if (replyPid && pidSet.has(replyPid)) {
+                let replyPids = JSON.parse($a.attr("data-href-id"));
+                let backupAttr = ["href", "target"];
+                if (replyPids) {
                     backupAttr.forEach(a => !$a.attr(`data-original-${a}`) && $a.attr(`data-original-${a}`, $a.attr(a)));
-                    $a.attr("href", "javascript:void(0);").removeAttr("target").removeAttr("rel").removeClass("href_id").addClass("href_id");
-                } else {
-                    backupAttr.forEach(a => $a.attr(a, $a.attr(`data-original-${a}`)));
-                    $a.removeClass("href_id");
+                    $a.addClass("href_id");
+                    if (normalizedUrl != value.threadUrl) {
+                        $a.attr("href", value.threadUrl + $a.attr("data-href-id-url-suffix"));
+                    }
                 }
             });
 
@@ -3374,56 +3457,68 @@ var GOCHUTIL = GOCHUTIL || {};
                 needHeader = true
                 $popup.data("title-func", title => title ? $headerL.find("span.popup_title").text(title) : $headerL.find("span.popup_title").text());
             }
+
+            $popup.data("pin-func", () => {
+                $popup.addClass("pinned").addClass("moveable").removeAttr("data-parent-popup-id");
+                _.settings.app.get().fixOnPinned && $popup.data("fix-func")?.();
+            });
+            $popup.data("unpin-func", () => {
+                $popup.removeClass("pinned").removeClass("moveable").attr("data-parent-popup-id", parentPopupId);
+            });
             if (option?.["pinnable"]) {
-                $popup.data("pin-func", () => {
-                    $popup.addClass("pinned").addClass("moveable").addClass("resizeable").removeAttr("data-parent-popup-id");
-                    _.settings.app.get().fixOnPinned && $popup.data("fix-func")?.();
-                });
-                $popup.data("unpin-func", () => {
-                    $popup.removeClass("pinned").removeClass("moveable").removeClass("resizeable").attr("data-parent-popup-id", parentPopupId);
-                });
                 $popup.data("togglePin-func", () => $popup.data($popup.hasClass("pinned") ? "unpin-func" : "pin-func")());
                 $headerR.append($(createControlLinkTag("popup_pin", "Pin")).on("click", () => $popup.data("pin-func")()));
                 $headerR.append($(createControlLinkTag("popup_unpin", "Unpin")).on("click", () => $popup.data("unpin-func")()));
                 $popup.addClass("pinnable")
                 $popup.data("unpin-func")();
                 needHeader = true
-
-                if (option?.["pinOnly"]) {
-                    $popup.data("pin-func")?.();
-                    $popup.data("unpin-func", () => { });
-                    $headerR.find(".popup_pin").hide();
-                    $headerR.find(".popup_unpin").hide();
-                }
             }
+            if (option?.["pinOnly"]) {
+                $popup.data("pin-func")?.();
+                $popup.data("unpin-func", () => { });
+                $headerR.find(".popup_pin").hide();
+                $headerR.find(".popup_unpin").hide();
+            }
+
+            let fixOffset = () => {
+                let $scrollable = $popup.closest(".scrollable");
+                if ($scrollable.length == 0) {
+                    return { top: $(window).scrollTop(), left: $(window).scrollLeft() };
+                } else {
+                    return { top: $scrollable.scrollTop() - ($scrollable?.offset()?.top ?? 0), left: $scrollable.scrollLeft() - ($scrollable?.offset()?.left ?? 0) };
+                }
+            };
+            $popup.data("fix-func", () => {
+                $popup.css("position", "fixed");
+                let offset = fixOffset();
+                if (!$popup.hasClass("fixed")) {
+                    $popup.addClass("fixed").offset({ top: $popup.offset().top - offset.top, left: $popup.offset().left - offset.left })
+                }
+            });
+            $popup.data("unfix-func", () => {
+                $popup.css("position", "absolute");
+                let offset = fixOffset();
+                if ($popup.hasClass("fixed")) {
+                    $popup.removeClass("fixed").offset({ top: $popup.offset().top + offset.top, left: $popup.offset().left + offset.left })
+                }
+            });
 
             if (option?.["fixable"]) {
                 let $headerFix = $(`<span class="header_fix"></span>`);
                 $headerR.prepend($headerFix);
-                $popup.data("fix-func", () => {
-                    $popup.css("position", "fixed");
-                    if (!$popup.hasClass("fixed")) {
-                        $popup.addClass("fixed").offset({ top: $popup.offset().top - $(window).scrollTop(), left: $popup.offset().left - $(window).scrollLeft() })
-                    }
-                });
-                $popup.data("unfix-func", () => {
-                    $popup.css("position", "absolute");
-                    if ($popup.hasClass("fixed")) {
-                        $popup.removeClass("fixed").offset({ top: $popup.offset().top + $(window).scrollTop(), left: $popup.offset().left + $(window).scrollLeft() })
-                    }
-                });
                 $popup.data("toggleFix-func", () => $popup.data($popup.hasClass("fixed") ? "unfix-func" : "fix-func")());
                 $headerFix.append($(createControlLinkTag("popup_fix", "Fix")).on("click", () => $popup.data("fix-func")()));
                 $headerFix.append($(createControlLinkTag("popup_unfix", "Unfix")).on("click", () => $popup.data("unfix-func")()));
                 $popup.addClass("fixable");
                 $popup.data("unfix-func")();
                 needHeader = true
+            }
 
-                if (option?.["fixOnly"]) {
-                    $popup.data("fix-func")?.();
-                    $popup.data("unfix-func", () => { });
-                    $headerFix.hide();
-                }
+            if (option?.["fixOnly"]) {
+                $popup.addClass("fix_only");
+                $popup.data("fix-func")?.();
+                $popup.data("unfix-func", () => { });
+                $headerR.find(".header_fix").hide();
             }
 
             if (option?.["hideable"]) {
@@ -3455,7 +3550,8 @@ var GOCHUTIL = GOCHUTIL || {};
                     document.onselectstart = () => true;
                 });
             }
-            $popup.append($(`<div class="innerContainer scrollable"></div>`).append($inner));
+            $popup.append(`<div class="popup_body_outer resizeable scrollable"><div class="popup_body"></div></div>`);
+            $popup.find(".popup_body").append($inner);
             $popup.addClass(popupClass);
 
             $popup.hover(function () {
@@ -3467,10 +3563,10 @@ var GOCHUTIL = GOCHUTIL || {};
             return $popup;
         }
 
-        let cssAnim = ($e, cls, time = 200) => {
+        let cssAnim = ($e, cls, duration = 200) => {
             return new Promise((resolve, reject) => {
                 $e.addClass(cls);
-                setTimeout(() => resolve($e), time);
+                setTimeout(() => resolve($e), duration);
             });
         };
 
@@ -3481,9 +3577,10 @@ var GOCHUTIL = GOCHUTIL || {};
         let getCurrentPopupIdByElem = $e => $e.closest("div.popup-container").attr("id") ?? "popup-root";
         let getChildPopupIds = popupId => $(`[data-parent-popup-id="${popupId}"]`).map((i, e) => $(e).attr("id")).toArray() ?? [];
         let getDescendantPopupIds = popupId => getChildPopupIds(popupId).flatMap(pid => [pid].concat(getDescendantPopupIds(pid)));
+        let $defaultPopupContainer = $(`<div class="popup_container root"></div>`).appendTo($("body"));
 
         // ポップアップの表示処理.
-        let showPopupInner = async ($target, popupId, popupClass, innerContentAsync, fixedPos) => {
+        let showPopupInner = async ($target, popupId, popupClass, innerContentAsync, $container, fixedPos) => {
 
             let ret = await innerContentAsync($target)
             let $inner = ret?.["inner"] || ret;
@@ -3512,26 +3609,26 @@ var GOCHUTIL = GOCHUTIL || {};
                         $popup.offset(fixedPos($target));
                     } else {
                         let to = $target.offset();
-                        let left = to.left - $(window).scrollLeft(),
-                            right = left + $target.width(),
-                            top = to.top - $(window).scrollTop(),
-                            bottom = top + $target.height();
-                        let pw = $popup.outerWidth(),
-                            ph = $popup.outerHeight();
+                        let left = to.left - $(window).scrollLeft();
+                        let right = left + $target.width();
+                        let top = to.top - $(window).scrollTop();
+                        let bottom = top + $target.height();
+                        let pw = $popup.outerWidth();
+                        let ph = $popup.outerHeight();
                         // リンクタグより右の幅より小さい, リンクタグより左の幅より小さい, リンクタグ含めて右の幅より小さい, リンクタグ含めて左の幅より小さい, その他 の場合でそれぞれ位置決定. 上下も同様.
                         let widthPat = [
                             { match: pw < maxWidth + leftMargin - right, freeY: true, left: right },
                             { match: pw < left - leftMargin, freeY: true, left: left - pw },
                             { match: pw < maxWidth + leftMargin - left, freeY: false, left: left },
                             { match: pw < right - leftMargin, freeY: false, left: right - pw },
-                            { match: true, freeY: false, left: leftMargin + maxWidth - pw }];
+                            { match: true, freeY: false, left: left > maxWidth + leftMargin - right ? leftMargin : leftMargin + maxWidth - pw }]; // 広い方を基準に広げる.
                         let x = widthPat.find(w => w.match);
                         let heightPat = [
                             { match: ph < maxHeight + topMargin - bottom, freeX: true, top: bottom, coordinateV: -1 },
                             { match: ph < top - topMargin, freeX: true, top: top - ph, coordinateV: 1 },
                             { match: ph < maxHeight + topMargin - top, freeX: false, top: top },
                             { match: ph < bottom - topMargin, freeX: false, top: bottom - ph },
-                            { match: true, freeX: false, top: topMargin + maxHeight - ph }];
+                            { match: true, freeX: false, top: top > maxHeight + topMargin - bottom ? topMargin : topMargin + maxHeight - ph }]; // 広い方を基準に広げる.
                         let y = heightPat.find(h => h.match);
                         let po = { top: y.top + $(window).scrollTop(), left: x.left + $(window).scrollLeft() };
                         if (x.freeY && y.freeX) {
@@ -3542,16 +3639,17 @@ var GOCHUTIL = GOCHUTIL || {};
                     }
                 };
                 let size = () => {
-                    $popup.css("width", "").css("height", "");
-                    $popup.outerHeight(Math.min($popup.outerHeight(), maxHeight));
-                    $popup.outerWidth(Math.min($popup.outerWidth(), maxWidth));
+                    let $resizeable = $popup.find(".resizeable");
+                    $resizeable.css("width", "").css("height", "");
+                    let marginH = $popup.height() - $resizeable.height();
+                    let marginW = $popup.width() - $resizeable.width();
+                    $resizeable.outerHeight(Math.min($resizeable.outerHeight(), maxHeight - marginH));
+                    $resizeable.outerWidth(Math.min($resizeable.outerWidth(), maxWidth - marginW));
                 };
                 let autoSize = () => {
                     $popup.css("width", "").css("height", "");
                 };
 
-                if ($popup.find(".popup_img").length <= 0) {
-                }
                 $popup.find("img").on("load", function () {
                     // 画像ロード後に位置とサイズ調整. pop_in 中だと位置がおかしくなるので、終わってから
                     $popup.data("pop_in_promise").then(_ => {
@@ -3560,7 +3658,7 @@ var GOCHUTIL = GOCHUTIL || {};
                     });
                 });
 
-                $("body").append($popup);
+                $container.append($popup);
                 $target.addClass("popupping");
 
                 $popup.data("place-func", place);
@@ -3587,6 +3685,8 @@ var GOCHUTIL = GOCHUTIL || {};
                 await initProcessPostsPromise;
                 let $a = $(this);
                 $a.addClass("mouse_hover");
+                let $container = $a.closest(".popup_container");
+                $container = $container.length == 0 ? $defaultPopupContainer : $container;
 
                 // 既に表示済み.
                 let popupId = $a.attr("data-popup-id");
@@ -3607,7 +3707,7 @@ var GOCHUTIL = GOCHUTIL || {};
                     timeoutHandles[popupId] = setTimeout(() => {
                         timeoutHandles[popupId] = undefined;
                         $a.removeClass("backgroundwidthprogress")
-                        showPopupInner($a, popupId, popupClass, innerContentAsync, option.fixedPos);
+                        showPopupInner($a, popupId, popupClass, innerContentAsync, $container, option.fixedPos);
                     }, 1000);
                 } else {
                     // 即時ポップアップ処理.
@@ -3616,15 +3716,18 @@ var GOCHUTIL = GOCHUTIL || {};
                     }
                     timeoutHandles[popupId] = undefined;
                     $a.removeClass("backgroundwidthprogress");
-                    showPopupInner($a, popupId, popupClass, innerContentAsync, option.fixedPos);
+                    showPopupInner($a, popupId, popupClass, innerContentAsync, $container, option.fixedPos);
                 }
             };
         }
 
         let createOnPinPopupHandler = () => {
-            return function () {
+            return function (e) {
                 let $a = $(this);
                 let $popup = $(`#${$a.attr("data-popup-id")}`);
+                if (_.settings.app.get().popupOnClick) {
+                    e.preventDefault();
+                }
                 if ($popup.length > 0) {
                     $popup.data("togglePin-func")?.();
                     if (_.settings.app.get().closeOtherPopupOnClick) {
@@ -3683,21 +3786,22 @@ var GOCHUTIL = GOCHUTIL || {};
         };
 
         // 画像のポップアップ処理
-        let imgPopup = (selector, popupClass) => {
+        let imgPopup = (selector, popupClass, src) => {
             let type = _.settings.app.get().popupOnClick ? "click" : "mouseover";
             $("body").on(type, selector, createOnShowPopupHandler(popupClass,
-                async $img => ({
+                async $tag => ({
                     inner: $('<div class="img_container loader" />')
-                        .append($('<img class="popup_img" referrerpolicy="no-referrer" />').on("load", function () { $(this).closest("div.img_container").removeClass("loader") }).attr("src", $img.closest("a").attr("data-href")))
+                        .append($('<img class="popup_img" referrerpolicy="no-referrer" />').on("load", function () { $(this).closest("div.img_container").removeClass("loader") }).attr("src", src($tag)))
                         .addClass(_.settings.app.get().blurImagePopup ? "blur" : "")
                         .on("click", function () { $(this).removeClass("blur") })
                         .append($('<div class="remove_blur">クリックでぼかし解除</div>').on("click", function () { $(this).closest("div.img_container").removeClass("blur"); })),
-                    option: { "title": "Image", pinnable: _.settings.app.get().pinnablePopup, fixable: _.settings.app.get().pinnablePopup }
+                    option: { "title": "Image", pinnable: _.settings.app.get().pinnablePopup, fixable: _.settings.app.get().pinnablePopup, fixOnly: $tag.closest(".popup").hasClass("fix_only") }
                 })));
             $("body").on("click", selector, createOnPinPopupHandler());
             $("body").on("mouseout", selector, createOnPopupLinkMouseOutHandler());
         };
-        imgPopup("div.message a.thumbnail_gochutil img", "img_popup");
+        imgPopup("div.message a.thumbnail_gochutil img", "img_popup", $img => $img.closest("a").attr("data-href"));
+        imgPopup("div.message a.img", "img_popup", $a => $a.attr("href"));
 
         // Korokoro, ip, id, 参照レス のレスリストポップアップ処理
         let listPopup = (selector, popupClass, lister, popupTyper, processContainer) => {
@@ -3711,7 +3815,7 @@ var GOCHUTIL = GOCHUTIL || {};
                     if (parentTypeId == typeId) {
                         return $("<div>現在のポップアップと同じです</div>");
                     }
-                    let $container = $('<div class="list_container" />');
+                    let $container = $('<div class="list_container thread" />').attr("data-url", $a.closest(".thread").attr("data-url"));
                     $container.data("popup-type-id", typeId);
                     lister(val).forEach(pid => $container.append($(`div.post#${pid}`).clone()));
                     $container.find("div.post").after("<br>");
@@ -3720,7 +3824,7 @@ var GOCHUTIL = GOCHUTIL || {};
                     processPopupPost($container);
                     return {
                         inner: $container,
-                        option: { "title": typeId, pinnable: _.settings.app.get().pinnablePopup, fixable: _.settings.app.get().pinnablePopup }
+                        option: { "title": typeId, pinnable: _.settings.app.get().pinnablePopup, fixable: _.settings.app.get().pinnablePopup, fixOnly: $a.closest(".popup").hasClass("fix_only") }
                     };
                 }));
             $("body").on("click", selector, createOnPinPopupHandler());
@@ -3753,11 +3857,11 @@ var GOCHUTIL = GOCHUTIL || {};
             }
         };
 
-        listPopup("span.ref_koro2 a", "koro2_popup", (v) => koro2Map[v.koro2], v => `SLIP(Korokoro2) : ${v.koro2}`, $c => $c.find("span.koro2.gochutil_wrapper").addClass("ref_mark"));
+        listPopup("span.ref_koro2 a", "koro2_popup", (v) => koro2Map[v.koro2], v => `SLIP(Korokoro) : ${v.koro2}`, $c => $c.find("span.koro2.gochutil_wrapper").addClass("ref_mark"));
         listPopup("span.ref_ip a", "ip_popup", (v) => ipMap[v.ip], v => `SLIP(IP) : ${v.ip}`, $c => $c.find("span.ip.gochutil_wrapper").addClass("ref_mark"));
         listPopup("span.ref_id a", "id_popup", (v) => idMap[v.dateAndID.id], v => `ID : ${v.dateAndID.id}`, $c => $c.find("span.uid_only.gochutil_wrapper").addClass("ref_mark"));
         listPopup("span.ref_posts a", "ref_post_popup", (v) => refPostId[v.postId], v => `Ref : >>${v.postId}`, ($c, v) => {
-            $c.find(`a.reply_link.href_id[data-href-id="${v.postId}"]`).addClass("ref_mark");
+            $c.find(`a.reply_link.href_id`).filter(function (i) { return new Set(JSON.parse($(this).attr("data-href-id"))).has(v.postId); }).addClass("ref_mark");
             $c.find(".post").each((i, e) => {
                 let $p = $(e);
                 let ancestors = new Set();
@@ -3766,7 +3870,7 @@ var GOCHUTIL = GOCHUTIL || {};
                 $p.find(`a.reply_link.href_id`).each((i, e) => {
                     $l = $(e);
                     let refPid = getPostId($l.closest("div.post").parent().closest("div.post"));
-                    if ($l.attr("data-href-id") == refPid) {
+                    if (new Set(JSON.parse($l.attr("data-href-id"))).has(refPid)) {
                         $l.addClass("ref_mark");
                     }
                 });
@@ -3804,45 +3908,64 @@ var GOCHUTIL = GOCHUTIL || {};
             let type = _.settings.app.get().popupOnClick ? "click" : "mouseover";
             $("body").on(type, selector, createOnShowPopupHandler(popupClass,
                 async $a => {
-                    let refPid = $a.attr("data-href-id");
                     if ($a.hasClass("ref_mark")) {
                         // ポップアップでマーク付きの場合は親コメントなので、その旨を表示する.
                         return $("<div>参照先親投稿です</div>");
                     }
-                    if (refPid) {
-                        let $post = $(`#${refPid}`).clone();
-                        appendScrollOwn($post);
-                        if ($post.length == 0) {
+                    let refPids = JSON.parse($a.attr("data-href-id"));
+                    let suffix = $a.attr("data-href-id-url-suffix");
+                    let strictSuffix = $a.attr("data-href-id-url-suffix-strict");
+                    let threadUrl = $a.closest(".thread").attr("data-url");
+                    if (refPids && threadUrl) {
+                        let $ext = $();
+                        if (threadUrl != normalizedUrl || refPids.some(pid => $(`.thread[data-url="${threadUrl}"] #${pid}`).length == 0)) {
                             // ページ上にない.fetchする.
-                            let url = threadUrl + refPid;
-                            let doc = await fetchHtml(url, { cache: "force-cache" })
-                            $post = $(doc).find("div.thread div.post:first").clone();
-                            $post = processThisThreadPost($post);
+                            let url = threadUrl + strictSuffix;
+                            try {
+                                $ext = $(await _.coFetchHtml(url, { cache: "force-cache" }));
+                            } catch (e) {
+                                if (e.status == 500) {
+                                    // 存在しないレス. 100 まで行ってないのに >>100 とか.
+                                    return $("<div>レスが見つかりません</div>");
+                                }
+                                throw e;
+                            }
+                            $ext.find(".thread").attr("data-url", threadUrl);
                         }
-                        $post = processPopupPost($post);
-                        if ($post.hasClass("abone") && _.settings.app.get().hideNgMsg) {
+                        let $container = $('<div class="thread" />').attr("data-url", $a.closest(".thread").attr("data-url"));
+                        let posts = refPids
+                            .map(pid => ({ $p: $(`.thread[data-url="${threadUrl}"] #${pid}`), pid: pid }))
+                            .map(p => p.$p.length == 0 ? $ext.find(`.thread[data-url="${threadUrl}"] #${p.pid}`) : p.$p)
+                            .filter($p => $p.length == 1)
+                            .map($p => $p.clone());
+                        posts.forEach($p => $container.append($p));
+                        $container.find("div.post").after("<br>");
+                        $container.find("div.post").each((i, e) => { processPost($(e)); appendScrollOwn($(e)); });
+                        processPopupPost($container)
+                        if (posts.every($p => $p.hasClass("abone")) && _.settings.app.get().hideNgMsg) {
                             return $("<div>非表示あぼーん</div>");
                         }
                         return {
-                            inner: $post,
-                            option: { title: `>>${refPid}`, pinnable: _.settings.app.get().pinnablePopup, fixable: _.settings.app.get().pinnablePopup }
+                            inner: $container,
+                            option: { title: `>>${suffix}`, pinnable: _.settings.app.get().pinnablePopup, fixable: _.settings.app.get().pinnablePopup, fixOnly: $a.closest(".popup").hasClass("fix_only") }
                         };
                     }
-                }));
+                }, { cancel: _.settings.app.get().popupOnClick }));
             if (_.settings.app.get().popupOnClick) {
+                // クリックポップアップでない場合のクリックはスクロールするか、リンククリック動作が実行されるので、Pinしない.
                 $("body").on("click", selector, createOnPinPopupHandler());
             }
             $("body").on("mouseout", selector, createOnPopupLinkMouseOutHandler());
         };
         refLinkPopup("div.message a.reply_link", "ref_popup");
 
-        $a => { return { top: $a.offset().top - 15, left: $a.offset().left + $a.width() } }
         // あぼーんのポップアップ処理.
         let ngPopup = (selector, popupClass) => {
             let popupNgHandler = (popupClass, delay) => {
                 return createOnShowPopupHandler(popupClass,
                     async $a => {
-                        let $inner = $a.closest("div.message.abone").clone().removeClass("abone");
+                        let $inner = $(`<div class="thread"></div>`).attr("data-url", $a.closest(".thread").attr("data-url"));
+                        $inner.append($a.closest("div.message.abone").clone().removeClass("abone"));
                         $inner.find("span.abone_message").remove();
                         $inner.find("span").removeClass("abone");
                         $inner.append(`<br><span class="ng_match_msg">${$a.closest(".abone_message").attr("data-ng-msg")}</span>`)
@@ -3857,62 +3980,24 @@ var GOCHUTIL = GOCHUTIL || {};
         };
         ngPopup("div.message.abone span.abone_message a", "abone_popup")
 
-        // 別スレへのリンクのポップアップ処理.
-        let refLinkAnotherThreadPopup = (selector, popupClass) => {
-            if (_.settings.app.get().popupOnClick) {
-                return;
-            }
-            $("body").on("mouseover", selector, createOnShowPopupHandler(popupClass,
-                async $a => {
-                    let url = new URL($a.attr("data-href-thread") + "1");
-                    if (url.protocol != location.protocol) {
-                        url.protocol = location.protocol;
-                    }
-                    let doc = await fetchHtml(url, { cache: "force-cache" })
-                    let $p = $(doc).find("div.thread div.post:first").clone();
-                    if ($p.length == 0) {
-                        return;
-                    }
-                    // $p.find("a.reply_link").contents().unwrap();
-                    // $p.find("a.reply_link").remove();
-                    return initializePost($p);
-                }, { showDelay: true }));
-            $("body").on("mouseout", selector, createOnPopupLinkMouseOutHandler());
-        }
-        refLinkAnotherThreadPopup("div.message a.ref_another_thread", "another_thread_popup top_popup");
-
-        let createContainerFromLink = async ($a) => {
-            let url = new URL($a.attr("href"));
-            let $container = $('<div class="list_container" />');
-            let doc = await _.coFetchHtml(url, { cache: "force-cache" });
-            $(doc).find("div.thread div.post")
-                .toArray()
-                .map(p => processPost($(p), parsePost($(p))))
-                .forEach($p => $container.append($p));
-
-            $container.find("div.post").after("<br>");
-            // このスレッドのデータで作られてしまうので、正しく動かないため.
-            // TODO:スレッド別で動作の制御を追加しなくては.
-            $container.find(".control_link").remove();
-            processPopupPost($container);
-            return $container;
-        };
-
-        // 増加レスのポップアップ処理.
-        let newResPopup = (selector, popupClass) => {
+        // 外部スレのレスのポップアップ処理.
+        let extReplyLinkPopup = (selector, popupClass) => {
             let type = _.settings.app.get().popupOnClick ? "click" : "mouseover";
             $("body").on(type, selector, createOnShowPopupHandler(popupClass,
                 async $a => {
-                    let $tr = $a.closest("tr");
-                    let thraedUrl = $tr.attr("data-url");
-                    let $container = await createContainerFromLink($a);
-                    // リンクを絶対URLに変換.
-                    $container.find("a.reply_link").addClass("reply_link_extern").removeClass("reply_link")
-                        .each((i, e) => $(e).attr("href", thraedUrl + $(e).attr("data-href-id")));
+                    let threadUrl = $a.attr("data-thread-url");
+                    let $container = $('<div class="list_container thread" />').attr("data-url", threadUrl);
+                    let doc = await _.coFetchHtml($a.attr("data-popup-url") ?? $a.attr("href"), { cache: "force-cache" });
+                    $(doc).find("div.thread div.post")
+                        .toArray()
+                        .forEach(p => processPost($(p).appendTo($container)));
+
+                    $container.find("div.post").after("<br>");
+                    processPopupPost($container);
                     return {
                         inner: $container,
                         option: {
-                            "title": `${$tr.find("td.name_col a").text()} : ${parseInt($tr.find("td.res_count_col").text()) - parseInt($tr.find("td.inc_res_count_col a").text()) + 1}-${$tr.find("td.res_count_col").text()}`,
+                            "title": $a.attr("data-popup-title"),
                             pinnable: _.settings.app.get().pinnablePopup, fixable: true, fixOnly: true
                         }
                     };
@@ -3922,27 +4007,12 @@ var GOCHUTIL = GOCHUTIL || {};
             }
             $("body").on("mouseout", selector, createOnPopupLinkMouseOutHandler());
         }
-        newResPopup("a.bookmark_new_res_count", "new_res_count_popup top_popup");
 
-        // 他スレポップアップの reply_link のポップアップ処理.
-        let refLinkExternPopup = (selector, popupClass) => {
-            let type = _.settings.app.get().popupOnClick ? "click" : "mouseover";
-            $("body").on(type, selector, createOnShowPopupHandler(popupClass,
-                async $a => {
-                    return {
-                        inner: await createContainerFromLink($a),
-                        option: {
-                            "title": $a.text(),
-                            pinnable: _.settings.app.get().pinnablePopup, fixable: true, fixOnly: true
-                        }
-                    };
-                }, { cancel: _.settings.app.get().popupOnClick }));
-            if (_.settings.app.get().popupOnClick) {
-                $("body").on("click", selector, createOnPinPopupHandler());
-            }
-            $("body").on("mouseout", selector, createOnPopupLinkMouseOutHandler());
-        };
-        refLinkExternPopup("div.message a.reply_link_extern", "ref_extern_popup top_popup");
+        extReplyLinkPopup("a.ext_reply_link.new_replies", "ext_reply_link_popup");
+        if (!_.settings.app.get().popupOnClick) {
+            // 他スレへのリンクは、クリックでポップアップせずに遷移させてしまう.
+            extReplyLinkPopup("a.ext_reply_link.ext_thread", "ext_reply_link_popup");
+        }
 
         // 投稿データのポップアップ前処理. 不要なデータを削除する. (ポップアップ制御のクラスや属性や一時的なクラス等)
         let processPopupPost = ($obj) => {
@@ -3986,16 +4056,16 @@ var GOCHUTIL = GOCHUTIL || {};
         let replaceAllPopup = (fixed = true, replace = true, resize = true) => $("div.popup-container").each((i, e) => replacePopup($(e), fixed, replace, resize));
         let replacePopup = ($popup, fixed = false, replace = true, resize = true) => {
             if ($popup && $popup.length > 0) {
-                let scrollTop = $popup.scrollTop();
-                let scrollLeft = $popup.scrollLeft();
+                let scrollTop = $popup.find(".scrollable").scrollTop();
+                let scrollLeft = $popup.find(".scrollable").scrollLeft();
                 if (resize) {
                     $popup.data("size-func")?.();
                 }
                 if (replace && (fixed || !$popup.hasClass("fixed"))) {
                     $popup.data("place-func")?.();
                 }
-                $popup.scrollTop(scrollTop);
-                $popup.scrollLeft(scrollLeft);
+                $popup.find(".scrollable").scrollTop(scrollTop);
+                $popup.find(".scrollable").scrollLeft(scrollLeft);
             }
         }
 
@@ -4071,51 +4141,23 @@ var GOCHUTIL = GOCHUTIL || {};
                     $("div#ng_word_control").append(createNGControlLinkTag(_.settings.ng.words.contains(word), "ng_word", "NG Word", "NG Word"));
                 }
             } else {
-                $("div#ng_word_control").remove();
-                $("div.message.selecting").removeClass("selecting");
+                setTimeout(() => {
+                    $("div#ng_word_control").remove();
+                    $("div.message.selecting").removeClass("selecting");
+                }, 0);
             }
         });
 
         let lastPostId = () => parseInt(getPostId($("div.thread div.post:last")));
 
         // URLで最新N件表示やn-N表示の判定.
-        let displayItems = (() => {
-            var ret = {
-                last: undefined,
-                from: undefined,
-                to: undefined,
-                all: undefined,
-                without1: undefined
-            };
-            let href = location.href;
-            if (href.indexOf("?") > -1) {
-                href = href.slice(0, href.indexOf("?"));
-            }
-            let match = href.match(/\/l([0-9]{1,3})(n|)$/)
-            if (match) {
-                ret.last = parseInt(match[1]);
-                if (match[2] == "n") {
-                    ret.without1 = true;
-                }
-            }
-            match = href.match(/\/([0-9]{1,3}|)-([0-9]{1,3}|)(n|)$/);
-            if (match) {
-                if (match[1]) {
-                    ret.from = parseInt(match[1]);
-                }
-                if (match[2]) {
-                    ret.to = parseInt(match[2]);
-                }
-                if (match[3] == "n") {
-                    ret.without1 = true;
-                }
-            }
-            match = href.match(/.+[0-9]{4}\/?(n|)$/);
-            if (match) {
-                ret.all = true;
-            }
-            return ret;
-        })();
+        let displayItems = {
+            last: parsedUrl.last && parseInt(parsedUrl.last),
+            from: parsedUrl.from && parseInt(parsedUrl.from),
+            to: parsedUrl.to && parseInt(parsedUrl.to),
+            all: parsedUrl.resLink ? false : true,
+            without1: parsedUrl.without1
+        };
 
         // 新着投稿の取得可否.
         let canAppendNewPost = () => {
@@ -4149,7 +4191,7 @@ var GOCHUTIL = GOCHUTIL || {};
         let fetchAndAppendNewPost = async () => {
             if (canAppendNewPost() && !fetching) {
                 let newPid = lastPostId() + 1;
-                let url = threadUrl + newPid + "-n";
+                let url = normalizedUrl + newPid + "-n";
                 fetching = true;
                 removeNewPostMark();
                 showProcessingMessage();
@@ -4337,7 +4379,7 @@ var GOCHUTIL = GOCHUTIL || {};
             records.forEach(rec => {
                 let target = rec.target;
                 if ($(target).is(':visible')) {
-                    let prev = JSON.parse($(target).attr("data-rect"));
+                    let prev = $(target).data("rect");
                     let rect = target.getBoundingClientRect();
                     if (rect.top != prev.top || rect.left != prev.left) {
                         $(target).trigger("reposition");
@@ -4345,13 +4387,13 @@ var GOCHUTIL = GOCHUTIL || {};
                     if (rect.height != prev.height || rect.width != prev.width) {
                         $(target).trigger("resize");
                     }
-                    $(target).attr("data-rect", JSON.stringify(rect));
+                    $(target).data("data", rect);
                 }
             });
         });
 
         let observeStyle = ($elem) => {
-            $elem.attr("data-rect", JSON.stringify($elem[0].getBoundingClientRect()));
+            $elem.data("rect", $elem[0].getBoundingClientRect());
             resizeObserver.observe($elem[0], {
                 attriblutes: true,
                 attributeFilter: ["style"]
@@ -4386,7 +4428,8 @@ var GOCHUTIL = GOCHUTIL || {};
                 width: 600,
                 height: 300
             };
-            $popup.css("left", rect.left).css("top", rect.top).css("width", rect.width).css("height", rect.height);
+            $popup.css("left", rect.left).css("top", rect.top);
+            $popup.find(".resizeable").css("width", rect.width).css("height", rect.height);
         };
 
         let resizeTopPane = ($topPane, defaultHeight) => {
@@ -4439,7 +4482,7 @@ var GOCHUTIL = GOCHUTIL || {};
                                 .attr("data-board-id", b.boardId)
                                 .attr("data-domain", b.domain)
                                 .attr("data-url", b.url)
-                                .append($('<span class="board_name" />').append($('<a href="javascript:void(0);" />').text(b.name))))))));
+                                .append($('<span class="board_name" />').append($('<a rel="noopener noreferrer" target="_blank"></a>').attr("href", b.url).text(b.name))))))));
             $boardPane.append($genreList);
 
             $("div.board_list").each((i, e) => $(e).attr("data-height", $(e).height()));
@@ -4463,7 +4506,7 @@ var GOCHUTIL = GOCHUTIL || {};
             let $container = $('<div class="top_container"></div>');
             let $pane = $('<div class="top_pane">');
             let $header = $(`<div class="top_pane_header lrcontainer"><span class="left"></span><span class="right"></span></div>`);
-            let $bodyContainer = $('<div id="top_pane_body_outer" class="top_pane_body_outer resizeable"><div class="top_pane_body_inner scrollable"><div class="top_pane_body"></div></div><div>')
+            let $bodyContainer = $('<div id="top_pane_body_outer" class="top_pane_body_outer popup_container resizeable scrollable vertical"><div class="top_pane_body"></div></div>')
             createControlLinkTag()
             $pane.append($header);
             $pane.append($bodyContainer);
@@ -4603,7 +4646,8 @@ var GOCHUTIL = GOCHUTIL || {};
             initInner($inner, "thread_list", { top: $("nav.navbar-fixed-top").outerHeight() + 1, left: document.documentElement.clientWidth - 510, width: 500, height: 300 });
 
             // 板一覧の板名クリック.
-            $(document).on("click", "div.board_list .board_name a", function () {
+            $(document).on("click", "div.board_list .board_name a", function (e) {
+                e.preventDefault();
                 let $a = $(this);
                 $inner.find(".search input").val("");
                 $table.find("tbody tr").remove();
@@ -4794,7 +4838,7 @@ var GOCHUTIL = GOCHUTIL || {};
             $(document).on("click", ".feature_pane div.history_list a", showList);
             $inner.data("show-list-func", showList);
 
-            let appendNewPost = function () {
+            let appendOlderHistories = function () {
                 if ($table.hasClass("all_loaded")) {
                     return;
                 }
@@ -4808,9 +4852,9 @@ var GOCHUTIL = GOCHUTIL || {};
                 }
             };
 
-            // スクロール & resize.
-            $scrollable.on("scroll", appendNewPost);
-            $resizeable.on("resize", appendNewPost);
+            // スクロール & resize で古い履歴を追加表示.
+            $scrollable.on("scroll", appendOlderHistories);
+            $resizeable.on("resize", appendOlderHistories);
 
             // 一覧から履歴解除
             $table.on("click", "tbody td.delete_col a", function () {
@@ -4831,7 +4875,7 @@ var GOCHUTIL = GOCHUTIL || {};
             $inner.on("click", ".process_all.delete a", function () {
                 $inner.find(".error").text("");
                 _.history.deleteAll()
-                    .then(list)
+                    .then(() => $table.find("tbody tr").remove())
                     .catch(err => { console.error(err); $inner.find(".error").text(err.toString()); });
             });
         })();
@@ -4870,29 +4914,38 @@ var GOCHUTIL = GOCHUTIL || {};
             param.openLeft = $(".container.container_body").hasClass("open_left");
             (() => { // スレッド一覧.
                 let $inner = $(".feature_inner.thread_list");
+                let $th = $inner.find("table thead th");
                 if ($inner.is(":visible")) {
                     param.threadList = {
                         threads: $inner.find("table tbody tr").toArray().map(e => $(e).data("record")),
                         title: $inner.data("title-func")?.(),
-                        scroll: $inner.closest(".scrollable").scrollTop()
+                        scroll: $inner.closest(".scrollable").scrollTop(),
+                        sortColIdx: $th.index($th.filter(".asc,.desc").first()),
+                        sortColAsc: $inner.find("table thead th").is(".asc")
                     };
                 }
             })();
             (() => { // 類似スレッド一覧
                 let $inner = $(".feature_inner.similar_list");
+                let $th = $inner.find("table thead th");
                 if ($inner.is(":visible")) {
                     param.sililarList = {
                         threads: $inner.find("table tbody tr").toArray().map(e => $(e).data("record")),
                         title: $inner.data("title-func")?.(),
-                        scroll: $inner.closest(".scrollable").scrollTop()
+                        scroll: $inner.closest(".scrollable").scrollTop(),
+                        sortColIdx: $th.index($th.filter(".asc,.desc").first()),
+                        sortColAsc: $inner.find("table thead th").is(".asc")
                     };
                 }
             })();
             (() => { // ブックマーク.
                 let $inner = $(".feature_inner.bookmark");
+                let $th = $inner.find("table thead th");
                 if ($inner.is(":visible")) {
                     param.bookmark = {
-                        scroll: $inner.closest(".scrollable").scrollTop()
+                        scroll: $inner.closest(".scrollable").scrollTop(),
+                        sortColIdx: $th.index($th.filter(".asc,.desc").first()),
+                        sortColAsc: $inner.find("table thead th").is(".asc")
                     };
                 }
             })();
@@ -4937,6 +4990,7 @@ var GOCHUTIL = GOCHUTIL || {};
                     $inner.data("show-frame-func")?.();
                     $inner.closest(".scrollable").scrollTop(param.threadList.scroll);
                     $inner.data("title-func")?.(param.threadList.title);
+                    $inner.find("table").data("sort-by-func")?.(param.threadList.sortColIdx, param.threadList.sortColAsc);
                 }
                 if (param.sililarList) {
                     let $inner = $(".feature_inner.similar_list");
@@ -4944,11 +4998,13 @@ var GOCHUTIL = GOCHUTIL || {};
                     $inner.data("show-frame-func")?.();
                     $inner.closest(".scrollable").scrollTop(param.sililarList.scroll);
                     $inner.data("title-func")?.(param.sililarList.title);
+                    $inner.find("table").data("sort-by-func")?.(param.sililarList.sortColIdx, param.sililarList.sortColAsc);
                 }
                 if (param.bookmark) {
                     let $inner = $(".feature_inner.bookmark");
                     await $inner.data("show-list-func")?.();
                     $inner.closest(".scrollable").scrollTop(param.bookmark.scroll);
+                    $inner.find("table").data("sort-by-func")?.(param.bookmark.sortColIdx, param.bookmark.sortColAsc);
                 }
                 if (param.history) {
                     let $inner = $(".feature_inner.history");
@@ -5068,6 +5124,7 @@ var GOCHUTIL = GOCHUTIL || {};
                 .filter($n => $n.hasClass("post"))
                 .filter($n => $n.attr("id") && getPostId($n));
             let relatedPostId = Array.from(new Set([].concat(addRefData($(addedPosts.map($n => $n.get(0))))).concat(removeRefData($(removedPosts.map($n => $n.get(0)))))));
+            addedPosts.forEach($p => addPostProcess($p));
             var $addedPosts = $(addedPosts.map($p => $p.get(0)));
             if (_.settings.app.get().newPostMarkDisplaySeconds > 0) {
                 removeNewPostMarkTimeout = setTimeout(() => removeNewPostMark(), _.settings.app.get().newPostMarkDisplaySeconds * 1000);
@@ -5084,6 +5141,18 @@ var GOCHUTIL = GOCHUTIL || {};
             $addedPosts.filter("div.post").each((i, e) => cssAnim($(e), "pop_in").then($e => $e.removeClass("pop_in").addClass("new")));
             processPosts(relatedPostId);
         });
+
+        let addPostProcess = ($post) => {
+            if ($("#rModal").length > 0) {
+                // 通報フォームがある場合、通報ボタン追加.
+                $post.find(".meta").append('<span class="ureport" style="margin-left:5px"><button class="rBtn" style="font-weight:bold;padding-top:0.1px;padding-bottom:0.1px;">&#8942;</button></span>');
+                $post.find(".rBtn").click(function () {
+                    F_PN = $(this).parent().parent().children(".number").html();
+                    $("#fr_url").val("https:" + $("#zxcvtypo").val() + "/" + F_PN);
+                    $("#rModal").show();
+                });
+            }
+        }
 
         // 監視の開始
         newPostObserver.observe($("div.thread").get(0), { childList: true });
@@ -5167,22 +5236,14 @@ var GOCHUTIL = GOCHUTIL || {};
 
     await _.init();
     if (!_.settings.app.get().stop) {
-        $("html").addClass("gochutil");
+        $(() => $("html").addClass("gochutil"));
         if (parsedUrl.type == "top") {
-            $(function () {
-                top();
-            });
+            $(top);
         } else if (parsedUrl.type == "subback") {
-            $(function () {
-                subback();
-            });
+            $(subback);
         } else if (parsedUrl.type == "thread") {
             _.injectJs();
-            $(function () {
-                if ($(".thread .post").length != 0) {
-                    thread();
-                }
-            });
+            $(thread);
         }
     }
 }(this));
