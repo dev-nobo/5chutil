@@ -23,12 +23,15 @@
     font-size: 0.75em;
 }
 
-.gochutil.gochutil.gochutilthread .loader table.list {
+.gochutil.gochutilthread .loader table.list {
     display: none;
 }
 
-.gochutil.gochutil.gochutilthread table.list {
+.gochutil.gochutilthread table.list {
     width: 100%;
+}
+
+.gochutil.gochutilthread.old table.list {
     font-size: 0.85em;
 }
 
@@ -109,18 +112,29 @@
     content: "▶";
 }
 
-.gochutil.gochutilthread div.message.abone span.abone {
+.gochutil.gochutilthread .gochutil_post.abone .gochutil_message {
     display: none;
 }
 
-.gochutil.gochutilthread div.message div#ng_word_control {
+.gochutil.gochutilthread .gochutil_message div#ng_word_control {
     float: right;
     margin-left: 10px;
 }
 
 .gochutil.gochutilthread span.control_link {
-    font-size: 13px;
     font-family: monospace;
+}
+
+.gochutil.gochutilthread.thread span.control_link {
+    font-size: 1.2em;
+}
+
+.gochutil.gochutilthread.thread .lrcontainer span.control_link {
+    font-size: 1em;
+}
+
+.gochutil.gochutilthread.old span.control_link {
+    font-size: 13px;
 }
 
 .gochutil.gochutilthread span.control_link a {
@@ -136,11 +150,11 @@
     margin-right: 5px;
 }
 
-.gochutil.gochutilthread div.message.abone span.abone_message a {
+.gochutil.gochutilthread .gochutil_post.abone span.abone_message a {
     font-weight: bold;
 }
 
-.gochutil.gochutilthread div.message span.ng_word_wrapper {
+.gochutil.gochutilthread .gochutil_message span.ng_word_wrapper {
     background-color: #ffff88;
     color: #cc0000;
 }
@@ -158,8 +172,20 @@
     background-color: #ccccff;
 }
 
-.gochutil.gochutilthread div.message a.thumbnail_gochutil, .gochutil.gochutilthread div.message div.thumb5ch.gochutil {
+.gochutil.gochutilthread .gochutil_message a.thumbnail_gochutil, .gochutil.gochutilthread .gochutil_message div.thumb5ch.gochutil {
     display: inline-block;
+}
+
+.gochutil.gochutilthread img.thumbnail_gochutil {
+    transition: filter 0.5s ease;
+}
+
+.gochutil.gochutilthread img.thumbnail_gochutil.blur:hover {
+    filter: blur(0);
+}
+
+.gochutil.gochutilthread img.thumbnail_gochutil.blur {
+    filter: blur(5px);
 }
 
 .gochutil.gochutilthread div.img_popup div.img_container {
@@ -181,6 +207,14 @@
 
 .gochutil.gochutilthread div.img_popup div.img_container div.remove_blur {
     display: none;
+}
+
+.gochutil.gochutilthread #hideme.forcehide {
+    display: none!important;
+}
+
+.gochutil.gochutilthread #hidemetoo.forcehide {
+    display: none!important;
 }
 
 .gochutil.gochutilthread div.img_popup div.img_container.blur div.remove_blur {
@@ -206,7 +240,7 @@
         -2px -2px 10px #555;
 }
 
-.gochutil.gochutilthread div.message span.embed {
+.gochutil.gochutilthread .gochutil_message span.embed {
     padding: 5px;
     display: inline-block;
     border: 1px solid #464646;
@@ -214,12 +248,12 @@
     transition: background-color .3s ease-out;
 }
 
-.gochutil.gochutilthread div.message span.embed a {
+.gochutil.gochutilthread .gochutil_message span.embed a {
     color: #485269;
     text-decoration: none !important;
 }
 
-.gochutil.gochutilthread div.message span.embed:hover {
+.gochutil.gochutilthread .gochutil_message span.embed:hover {
     background-color: #eee;
 }
 
@@ -256,12 +290,16 @@
 .gochutil.gochutilthread div.popup {
     border: 1px solid rgb(51, 51, 51);
     position: absolute;
-    background-color: rgb(239, 239, 239);
     display: flex;
     flex-direction: column;
     overflow: visible;
     height: auto;
     width: auto;
+    background-color: #fff;
+}
+
+.gochutil.gochutilthread.old div.popup{
+    background-color: rgb(239, 239, 239);
 }
 
 .gochutil.gochutilthread div.popup .popup_body_outer {
@@ -281,7 +319,7 @@
     height: 100%;
 }
 
-.gochutil.gochutilthread div.popup div.post {
+.gochutil.gochutilthread div.popup .gochutil_post {
     padding: 0;
     margin: 0;
 }
@@ -355,7 +393,11 @@
     line-height: 15px;
 }
 
-.gochutil.gochutilthread div.list_container span {
+.gochutil.gochutilthread div.list_container .gochutil_meta  {
+    font-size: 13px;
+}
+
+.gochutil.gochutilthread div.list_container .gochutil_message  {
     font-size: 13px;
 }
 
@@ -363,20 +405,20 @@
     font-size: 12px;
 }
 
-.gochutil.gochutilthread div.list_container div.meta {
+.gochutil.gochutilthread div.list_container .gochutil_meta {
     white-space: nowrap;
 }
 
-.gochutil.gochutilthread div.list_container div.post {
+.gochutil.gochutilthread div.list_container .gochutil_post {
     margin-bottom: 4px;
     padding: 4px;
 }
 
-.gochutil.gochutilthread div.list_container div.post div.message {
+.gochutil.gochutilthread div.list_container .gochutil_post .gochutil_message {
     padding: 2px 0 1px;
 }
 
-.gochutil.gochutilthread div.post div.childcontents {
+.gochutil.gochutilthread .gochutil_post div.childcontents {
     margin: 5px 0px 5px;
     display: flex;
 }
@@ -427,6 +469,13 @@
     font-size: 36px;
 }
 
+.gochutil.gochutilthread div.newposts {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+}
+
 .gochutil.gochutilthread span.appendnewposts {
     margin-left: 10px;
     background-color: #fff;
@@ -465,6 +514,16 @@
     animation-duration: calc(var(--gochutil-wait-appendnew-animation-span)) !important;
 }
 
+.gochutil.gochutilthread span.autoload_newposts label {
+    display: inline;
+    font-weight: unset;
+    font-size: unset;
+}
+
+.gochutil.gochutilthread span.autoload_newposts input[type=checkbox] {
+    margin: 0;
+}
+
 .gochutil.gochutilthread span.autoload_newposts {
     margin-left: 10px;
     padding: 10px;
@@ -489,11 +548,15 @@
     color: #bb2020;
 }
 
-.gochutil.gochutilthread div.new {
+.gochutil.gochutilthread .gochutil_post.new {
     position: relative;
 }
 
-.gochutil.gochutilthread div.new::after {
+.gochutil.gochutilthread.thread .gochutil_post.new {
+    background-color: #fff;
+}
+
+.gochutil.gochutilthread .gochutil_post.new::after {
     position: absolute;
     content: "";
     top: 0;
@@ -508,16 +571,20 @@
     animation: gochutilGlow 1.25s linear infinite, gochutilGlowIn 3s linear;
 }
 
-.gochutil.gochutilthread div.new.removing::after {
+.gochutil.gochutilthread .gochutil_post.new.removing::after {
     filter: blur(0px);
     animation: gochutilGlow 1.25s linear infinite, gochutilGlowOut 3s linear;
 }
 
-.gochutil.gochutilthread div.emphasis {
+.gochutil.gochutilthread .gochutil_post.emphasis {
     position: relative;
 }
 
-.gochutil.gochutilthread div.emphasis::after {
+.gochutil.gochutilthread.thread .gochutil_post.emphasis {
+    background-color: #fff;
+}
+
+.gochutil.gochutilthread .gochutil_post.emphasis::after {
     position: absolute;
     content: "";
     top: 0;
@@ -532,13 +599,21 @@
     animation: gochutilGlow 0.75s linear infinite, gochutilGlowIn 0.5s linear;
 }
 
-.gochutil.gochutilthread div.emphasis.removing::after {
+.gochutil.gochutilthread .gochutil_post.emphasis.removing::after {
     filter: blur(0px);
     animation: gochutilGlow 0.75s linear infinite, gochutilGlowOut 0.5s linear;
 }
 
-.gochutil.gochutilthread div.meta span.back-links.gochutil {
+.gochutil.gochutilthread .gochutil_meta span.back-links.gochutil {
     display: inline-block;
+}
+
+.gochutil.gochutilthread.thread .gochutil_meta span.uid_wrapper {
+    float: right;
+}
+
+.gochutil.gochutilthread.thread .gochutil_meta span.uid_wrapper span.uid {
+    float: unset;
 }
 
 .gochutil.gochutilthread div.left_container{
@@ -549,6 +624,10 @@
     left: 0px;
     height: calc(100vh - 50px);
     transition: width 0.4s 0s ease-out;
+}
+
+.gochutil.gochutilthread.thread .left_container {
+    font-size: smaller;
 }
 
 .gochutil.gochutilthread .hide_left .left_container {
@@ -681,8 +760,12 @@
     content: "◀";
 }
 
-.gochutil.gochutilthread .container.container_body{
+.gochutil.gochutilthread.old .container.container_body{
     transition: margin-left 0.4s 0s ease-out;
+}
+
+.gochutil.gochutilthread.thread #maincontent{
+    transition: padding-left 0.4s 0s ease-out;
 }
 
 .gochutil.gochutilthread .open_left div.left_container{
@@ -695,9 +778,14 @@
     transition: width 0.4s 0s ease-out;
 }
 
-.gochutil.gochutilthread .container.container_body.open_left{
+.gochutil.gochutilthread.old .container.container_body.open_left{
     margin-left: 200px;
     transition: margin-left 0.4s 0s ease-out;
+}
+
+.gochutil.gochutilthread.thread #maincontent.open_left{
+    padding-left: 215px;
+    transition: padding-left 0.4s 0s ease-out;
 }
 
 .gochutil.gochutilthread .immediate, .gochutil.gochutilthread .immediate * {
@@ -762,6 +850,11 @@
     margin-right: 30px;
 }
 
+.gochutil.gochutilthread .feature_inner .feature_option input[type=text].word {
+    width: 200px;
+    margin: 0;
+}
+
 .gochutil.gochutilthread .feature_inner .feature_option .error {
     color: #bb2020;
 }
@@ -786,14 +879,30 @@
     margin-top: 38px;
 }
 
+
+.gochutil.gochutilthread.thread div.thread {
+    /* min-width: 100px; */
+}
+
 .gochutil.gochutilthread .top_container {
     position: sticky;
-    top: 52px;
     height: auto;
     width:100%;
-    margin-top: -18px;
-    background-color: #f2f3f7;
     z-index: 1;
+    background-color: #fff;
+}
+
+.gochutil.gochutilthread.old .top_container {
+    top: 52px;
+    /* margin-top: -18px; */
+}
+
+.gochutil.gochutilthread.thread .top_container {
+    top: 40px;
+}
+
+.gochutil.gochutilthread.old .top_container {
+    background-color: #f2f3f7;
 }
 
 .gochutil.gochutilthread .top_container .top_pane{

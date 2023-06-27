@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         5chutil
 // @namespace    5chutil
-// @version      0.1.1.18
+// @version      0.1.1.19
 // @description  5ch のスレッドページに NG や外部コンテンツ埋め込み等の便利な機能を追加する
 // @author       5chutil dev
 // @match        *://*.5ch.net/test/read.cgi/*
@@ -35,6 +35,7 @@ var GOCHUTIL = GOCHUTIL || {};
 
     // ====== 環境依存 userscript, chrome, firefox ======
     _.env.allowRemoteScript = true;
+    _.env.controlShowOpenLeft = false;
 
     // ==================
 
@@ -180,16 +181,16 @@ var GOCHUTIL = GOCHUTIL || {};
 </div>`);
         $optionView.find("iframe").attr("srcdoc", $optionshtml.html());
 
-        var $settingLink = $(`<div id="gochutil_setting" style="position: fixed;"><a href="javascript:void(0);">5chutil設定</a></div>`);
+        var $settingLink = $(`<div id="gochutil_setting"><a href="javascript:void(0);">5chutil設定</a></div>`);
 
-        let top = $("nav.navbar-fixed-top").height() + 10;
-        let right = 230;
+        let top = 40;
+        let left = 230;
 
         $("body").on("click", "#gochutil_setting", function () {
             if ($("#gochutil_option_view").css("display") == "none") {
                 _.initOptions();
                 $("#gochutil_option_view div.gochutil_option").height(Math.min(800, $(window).height() - top - $settingLink.height() - 5 - 20));
-                $("#gochutil_option_view div.gochutil_option").width(Math.min(600, $(window).width() - (right * 2)));
+                $("#gochutil_option_view div.gochutil_option").width(Math.min(600, $(window).width() - (left * 2)));
                 $("#gochutil_option_view").css("display", "block");
             } else {
                 $("#gochutil_option_view").css("display", "none");
@@ -200,13 +201,11 @@ var GOCHUTIL = GOCHUTIL || {};
         });
 
         setTimeout(() => $("body").append($optionView), 0);
-        setTimeout(() => $("body").append($settingLink), 0);
+        setTimeout(() => $("div.left_pane").prepend($settingLink), 0);
 
-        $settingLink.css("top", top);
-        $settingLink.css("right", right);
         let $option = $optionView.find("div.gochutil_option");
         $option.css("top", top + $settingLink.height() + 5);
-        $option.css("right", right);
+        $option.css("left", left);
     });
 }(this));
 

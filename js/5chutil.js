@@ -4,7 +4,21 @@
     const $ = _.$;
 
     const parsedUrl = _.util.parseUrl(location.href);
+    if (!parsedUrl) return;
     const normalizedUrl = parsedUrl.normalize();
+
+    const currentSelector = _.selectors?.[parsedUrl.type];
+    const postSelector = currentSelector?.post ?? "";
+    const metaSelector = currentSelector?.meta ?? "";
+    const msgSelector = currentSelector?.message ?? "";
+    const nameSelector = currentSelector?.name ?? "";
+    const numberSelector = currentSelector?.number ?? "";
+    const dateSelector = currentSelector?.date ?? "";
+    const uidSelector = currentSelector?.uid ?? "";
+    const containerSelector = currentSelector?.container ?? "";
+    const titleSelector = currentSelector?.title ?? "";
+    const resCountSelector = currentSelector?.resCount ?? "";
+    const brSeperator = parsedUrl.type == "old";
 
     // データのフェッチ.
     let fetchHtml = async (url, option) => {
@@ -310,9 +324,34 @@
     };
 
     let thread = () => {
-        if ($(".thread .post").length == 0) {
+        if ($(".thread").find(postSelector).length == 0) {
             return;
         }
+
+        if (_.settings.app.get().hideLeft) {
+            $("#hideme").addClass("forcehide");
+            $("#thread").css("margin-left", "15px");
+        }
+        if (_.settings.app.get().hideRight) {
+            $("#hidemetoo").addClass("forcehide");
+        }
+
+        let topMargin = () => {
+            if (parsedUrl.type == "thread") {
+                return Math.min($("#followheader").outerHeight(), 40);
+            } else if (parsedUrl.type == "old") {
+                return $("nav.navbar-fixed-top").outerHeight();
+            }
+        }
+
+        let topPos = () => {
+            return topMargin() + 10 + ($(".top_container")?.height() ?? 0);
+        }
+
+        let leftPos = () => {
+            return 10 + ($(".left_pane")?.width() ?? 0);
+        }
+
         const rName = /^<b>(.*?) *<\/b>/;
         const rTrip = /(◆[./0-9A-Za-z]{8,12})/;
         const rSlip = /\((.+? ([*A-Za-z0-9+/]{4}-[*A-Za-z0-9+/=]{4}).*?)\)/;
@@ -323,6 +362,7 @@
         const rReplyHref1 = /\/((?<from>[0-9]{1,3})\-|)(?<to>[0-9]{1,3})$/;
 
         $("html").addClass("gochutilthread");
+        $("html").addClass(parsedUrl.type);
         $(".thread").attr("data-url", normalizedUrl);
 
         let postValueCache = {};
@@ -344,7 +384,7 @@
         }
 
         if (_.settings.app.get().hideNgMsg) {
-            addStyle($("html"), `div.post.abone, div.post.abone + br { display: none !important; }`);
+            addStyle($("html"), `${postSelector}.abone, ${postSelector}.abone + br { display: none !important; }`);
         }
 
         if (_.settings.app.get().deleteSelectors) {
@@ -366,11 +406,39 @@
         }
 
         // 投稿データの解析 <div class="post">.
+        /* 旧 :
+<div class="post" id="999" data-date="NG" data-userid="ID:XXXXXXXX" data-id="999">
+    <div class="meta">
+        <span class="number">0999</span>
+        <span class="name"><b><a href="mailto:sage">名無しさん </a></b><a href="mailto:sage">(ﾜｯﾁｮｲW aaaa-bbbb)<b></b></a></span>
+        <span class="date">2023/06/17(土) 01:23:45.67</span>
+        <span class="uid">ID:XXXXXXXX</span>
+    </div>
+    <div class="message">
+        <span class="escaped">本文</span></div>
+    </div>
+        */
+        /* 新 :
+<article id="999" data-date="NG" data-userid="ID:XXXXXXXXX" data-id="999" class="clear post">
+    <details open="" class="post-header">
+        <summary>
+            <span class="postid">0999</span>
+            <span class="postusername"><b><a href="mailto:sage">名無しさん </a></b><a href="mailto:sage">(ﾜｯﾁｮｲW aaaa-bbbb)<b></b></a></span>
+        </summary>
+        <span class="date">2023/06/17(土) 01:23:45.67</span>
+        <span class="uid">ID:XXXXXXXX</span>
+    </details>
+    <section class="post-content">本文</section>
+</article>
+        */
+
+
         let parsePost = ($post) => {
-            let $meta = $post.find(".meta");
-            let $msg = $post.find(".message");
-            let spanName = $meta.find(".name").html().replaceAll(/<a href="(.*?)">(.*?)<\/a>/g, "$2")
-            let num = $meta.find(".number").text();
+
+            let $meta = $post.children(metaSelector).first();
+            let $msg = $post.children(msgSelector).first();
+            let spanName = $meta.find(nameSelector).html().replaceAll(/<a href="(.*?)">(.*?)<\/a>/g, "$2")
+            let num = $meta.find(numberSelector).text();
 
             let mValue = (m) => {
                 if (m && m.length > 0 && m[1] && m[1].length > 0) {
@@ -389,13 +457,13 @@
 
             let dateAndID = undefined;
 
-            let mdate = $meta.find(".date").text().match(rDate);
-            let muid = $meta.find(".uid").text().match(rUid);
+            let mdate = $meta.find(dateSelector).text().match(rDate);
+            let muid = $meta.find(uidSelector).text().match(rUid);
             if (mdate && mdate.length > 0 && muid && muid.length > 0) {
                 dateAndID = _.settings.ng.dateAndIDs.create(mdate[1], muid[1]);
             }
 
-            let msg = $msg.find("span").text();
+            let msg = $msg.text();
 
             return {
                 postId: postId,
@@ -568,8 +636,11 @@
             if ($post.attr("data-initialized")) {
                 return $post;
             }
-            let $msg = $post.find(".message");
-            let $meta = $post.find(".meta");
+            $post.addClass("gochutil_post");
+            let $msg = $post.children(msgSelector);
+            $msg.addClass("gochutil_message");
+            let $meta = $post.children(metaSelector);
+            $meta.addClass("gochutil_meta");
 
             // direct link 化
             $msg.find("a").not(".reply_link").not(".directlink").each((i, e) => {
@@ -649,9 +720,8 @@
             });
 
             // MailTo を別Link化
-            let $spanName = $meta.find("span.name");
+            let $spanName = $meta.find(nameSelector);
             let spanName = $spanName.html();
-
             let m = spanName.match(/<a href="(.*?)">(.*?)<\/a>/);
             let after = "";
             if (m) {
@@ -696,13 +766,16 @@
             // thumbnailer.
             $msg.find(".thumb5ch").remove();
             $msg.find(".thumbnail").remove();
+
             $msg.find(".directlink").each(async (i, e) => {
                 let $a = $(e);
-                let imgUrl = $a.attr("href");
-                if (imgUrl.match(/\.(gif|jpg|jpeg|tiff|png)/i)) {
+                let href = $a.attr("href");
+                // image
+                if (href.match(/\.(gif|jpg|jpeg|tiff|png)/i)) {
                     $a.addClass("img");
-                    blobToBase64(new Blob([imgUrl]))
-                        .then(b64Url => fetchDataUrl(`https://thumb1.5ch.net/thumbnails/${location.hostname.split(".")[0]}/${b64Url.substr(b64Url.length - 250)}.png?imagelink=${encodeURIComponent(imgUrl)}`))
+                    /* 5ch 側サムネイラーが動かないっぽいので、利用しないようにする.
+                    blobToBase64(new Blob([href]))
+                        .then(b64Url => fetchDataUrl(`https://thumb1.5ch.net/thumbnails/${location.hostname.split(".")[0]}/${b64Url.substr(b64Url.length - 250)}.png?imagelink=${encodeURIComponent(href)}`))
                         .then(dataUrl => {
                             $a.find('div[div="thumb5ch"]').remove();
                             let $thumbnail = $("<a>").addClass("thumbnail_gochutil").attr("href", "javascript:void(0);").attr("data-href", $a.attr("href"));
@@ -717,6 +790,14 @@
                                 replacePopup($parentPopup, false, false, true);
                             }
                         }).catch(err => err.httpStatus != 202 && console.error(err))
+                    */
+                    let $img = $(`<a rel="noopener noreferrer" target="_blank" href="${href}"><img src="${href}" class="thumbnail_gochutil" style="max-height: 100px; max-width: 100px; height: auto; width: auto;"></img></a>`)
+                    $a.after($img).after("<br>");
+                }
+                // video
+                if (href.match(/\.(mp4)/i)) {
+                    let $video = $(`<video controls src="${href}" style="max-height: 600px; max-width: 800px; height: auto; width: auto;"></video>`);
+                    $a.after($video).after("<br>");
                 }
             });
 
@@ -805,7 +886,7 @@
 
         let processPosts = async (pids) => {
             let pidSet = pids?.reduce((p, c) => p.add(c), new Set());
-            processPostsInternal($("[data-id]").toArray().map(p => $(p))
+            processPostsInternal($(postSelector).toArray().map(p => $(p))
                 .filter($p => !pidSet || pidSet.has(getPostId($p))));
         };
 
@@ -895,8 +976,8 @@
             initializePost($post);
             let value = getPostValue($post);
 
-            let $msg = $post.children(".message");
-            let $meta = $post.children(".meta");
+            let $msg = $post.children(msgSelector);
+            let $meta = $post.children(metaSelector);
 
             // NG判定.
             let matchNG = matchNGPost(value);
@@ -907,20 +988,18 @@
                 $msg.each((i, e) => e.normalize());
             }
 
-            $post.find(".abone").removeClass("abone");
+            $post.removeClass("abone");
             $post.find(".abone_message").remove();
 
             if (matchNG.word) {
                 // NG Word ハイライト.
-                let $span = $msg.find("span");
-                $span.html(_.settings.ng.words.replaceString($span.html(), (w) => `<span class="ng_word_wrapper">${w}</span>` + $(createNGControlLinkTag(true, "ng_word_inline", "NG Word", "NG Word")).attr("data-word", w).prop("outerHTML")));
+                $msg.html(_.settings.ng.words.replaceString($msg.html(), (w) => `<span class="ng_word_wrapper">${w}</span>` + $(createNGControlLinkTag(true, "ng_word_inline", "NG Word", "NG Word")).attr("data-word", w).prop("outerHTML")));
             }
 
             // あぼーん.
             if (matchNG.any()) {
                 $post.addClass("abone");
-                $post.find(".meta,.message,.message span").addClass("abone");
-                $post.find(".message").append(`<span class="abone_message" data-ng-msg="${matchNG.message()}"><a href="javascript:void(0)">あぼーん</a></span>`);
+                $post.find(msgSelector).after(`<span class="abone_message" data-ng-msg="${matchNG.message()}"><a href="javascript:void(0)">あぼーん</a></span>`);
             }
 
             // 制御用リンク追加.
@@ -954,7 +1033,7 @@
             } else {
                 // パフォーマンスのため、div.meta は htmlを直接書き換えて、DOMの更新を一度で行う.
                 // → 5ch 側でヘッダーに処理を追加する場合があるので、meta削除一括追加処理は辞めて、可能な限りにする.(通報フォームが追加された)
-                let $spanName = $meta.find("span.name");
+                let $spanName = $meta.find(nameSelector);
                 let spanName = $spanName.html();
                 if (value.name) {
                     spanName = spanName.replace(rName, "$&" + createNGControlLinkTag(matchNG.name, "ng_name", "", "NG Name"));
@@ -972,9 +1051,10 @@
                 $spanName.html(spanName)
 
                 if (value.dateAndID) {
-                    let $spanUid = $meta.find("span.uid");
+                    let $spanUid = $meta.find(uidSelector);
                     let spanUid = $spanUid.html().replace(value.dateAndID.id, `<span class="uid_only gochutil_wrapper">$&</span>`)
                     $spanUid.html(spanUid);
+                    $spanUid.wrap(`<span class="uid_wrapper">`)
                     $spanUid.after(createCountControlLinkTag(idMap, value.dateAndID.id, "ref_id count_link", "idManyCount"));
                     $spanUid.after(createNGControlLinkTag(matchNG.id, "ng_id", "", "NG ID"));
                 }
@@ -1105,9 +1185,8 @@
                         let pos = $popup.offset();
                         $(document).off("mousemove");
                         document.onselectstart = () => false;
-                        let topMargin = $("nav.navbar-fixed-top").outerHeight();
                         $(document).on("mousemove", function (e) {
-                            if (10 < e.clientX && e.clientX < document.documentElement.clientWidth - 10 && topMargin + 10 < e.clientY && e.clientY < document.documentElement.clientHeight - 10) {
+                            if (10 < e.clientX && e.clientX < document.documentElement.clientWidth - 10 && topMargin() + 10 < e.clientY && e.clientY < document.documentElement.clientHeight - 10) {
                                 $popup.offset({ left: pos.left + e.pageX - mousedownEvent.pageX, top: pos.top + e.pageY - mousedownEvent.pageY });
                             }
                         });
@@ -1138,9 +1217,6 @@
                 setTimeout(() => resolve($e), duration);
             });
         };
-
-        let topPos = () => $("nav.navbar-fixed-top").height() + 10 + ($(".top_container").height() ?? 0);
-        let leftPos = () => 10 + $(".left_pane").width();
 
         let getParentPopupId = popupId => $(`#${popupId}`).attr("data-parent-popup-id");
         let getCurrentPopupIdByElem = $e => $e.closest("div.popup-container").attr("id") ?? "popup-root";
@@ -1184,6 +1260,7 @@
                         let bottom = top + $target.height();
                         let pw = $popup.outerWidth();
                         let ph = $popup.outerHeight();
+
                         // リンクタグより右の幅より小さい, リンクタグより左の幅より小さい, リンクタグ含めて右の幅より小さい, リンクタグ含めて左の幅より小さい, その他 の場合でそれぞれ位置決定. 上下も同様.
                         let widthPat = [
                             { match: pw < maxWidth + leftMargin - right, freeY: true, left: right },
@@ -1369,8 +1446,8 @@
             $("body").on("click", selector, createOnPinPopupHandler());
             $("body").on("mouseout", selector, createOnPopupLinkMouseOutHandler());
         };
-        imgPopup("div.message a.thumbnail_gochutil img", "img_popup", $img => $img.closest("a").attr("data-href"));
-        imgPopup("div.message a.img", "img_popup", $a => $a.attr("href"));
+        imgPopup(`${msgSelector} img.thumbnail_gochutil`, "img_popup", $img => $img.attr("src"));
+        imgPopup(`${msgSelector} a.img`, "img_popup", $a => $a.attr("href"));
 
         // Korokoro, ip, id, 参照レス のレスリストポップアップ処理
         let listPopup = (selector, popupClass, lister, popupTyper, processContainer) => {
@@ -1379,17 +1456,19 @@
                 async $a => {
                     // 親Popupと同タイプの場合にはそのメッセージを表示.
                     let parentTypeId = $a.closest(".list_container").data("popup-type-id");
-                    let val = getPostValue($a.closest("div.meta").parent());
+                    let val = getPostValue($a.closest(metaSelector).parent());
                     let typeId = popupTyper(val);
                     if (parentTypeId == typeId) {
                         return $("<div>現在のポップアップと同じです</div>");
                     }
                     let $container = $('<div class="list_container thread" />').attr("data-url", $a.closest(".thread").attr("data-url"));
                     $container.data("popup-type-id", typeId);
-                    lister(val).forEach(pid => $container.append($(`div.post#${pid}`).clone()));
-                    $container.find("div.post").after("<br>");
+                    lister(val).forEach(pid => $container.append($(`${postSelector}#${pid}`).clone()));
+                    if (brSeperator) {
+                        $container.find(postSelector).after("<br>");
+                    }
                     processContainer($container, val);
-                    $container.find("div.post").each((i, e) => appendScrollOwn($(e)));
+                    $container.find(postSelector).each((i, e) => appendScrollOwn($(e)));
                     processPopupPost($container);
                     return {
                         inner: $container,
@@ -1400,7 +1479,7 @@
             $("body").on("mouseout", selector, createOnPopupLinkMouseOutHandler());
         };
 
-        let appendScrollOwn = ($p) => $p && $p.children(".meta").prepend(createControlLinkTag("scrollOwn", ">>"));
+        let appendScrollOwn = ($p) => $p && $p.children(metaSelector).find(numberSelector).before(createControlLinkTag("scrollOwn", ">>"));
         $("body").on("click", ".scrollOwn a", function () {
             let pid = getPostId($(this).closest(".post"));
             scrollToPid(pid);
@@ -1417,9 +1496,12 @@
                 $container.append($("<div>").addClass("indent"));
                 $container.append($childPosts);
                 children.forEach(pid => {
-                    let $child = $(`div.post#${pid}`).clone();
+                    let $child = $(`${postSelector}#${pid}`).clone();
                     appendChildrenPosts($child, lister, ancestors);
-                    $childPosts.append($child).append("<br>");
+                    $childPosts.append($child);
+                    if (brSeperator) {
+                        $childPosts.append("<br>");
+                    }
                 });
                 $p.append($container);
                 ancestors.delete(v.postId);
@@ -1431,21 +1513,21 @@
         listPopup("span.ref_id a", "id_popup", (v) => idMap[v.dateAndID.id], v => `ID : ${v.dateAndID.id}`, $c => $c.find("span.uid_only.gochutil_wrapper").addClass("ref_mark"));
         listPopup("span.ref_posts a", "ref_post_popup", (v) => refPostId[v.postId], v => `Ref : >>${v.postId}`, ($c, v) => {
             $c.find(`a.reply_link.href_id`).filter(function (i) { return new Set(JSON.parse($(this).attr("data-href-id"))).has(v.postId); }).addClass("ref_mark");
-            $c.find(".post").each((i, e) => {
+            $c.find(postSelector).each((i, e) => {
                 let $p = $(e);
                 let ancestors = new Set();
                 appendChildrenPosts($p, v => refPostId[v.postId], ancestors);
                 // 参照リンクのハイライト.
                 $p.find(`a.reply_link.href_id`).each((i, e) => {
                     $l = $(e);
-                    let refPid = getPostId($l.closest("div.post").parent().closest("div.post"));
+                    let refPid = getPostId($l.closest(postSelector).parent().closest(postSelector));
                     if (new Set(JSON.parse($l.attr("data-href-id"))).has(refPid)) {
                         $l.addClass("ref_mark");
                     }
                 });
             });
             // 開閉処理.
-            $c.find("div.indent").closest(".post").children(".childcontents").find(".indent").append(createControlLinkTag("ref_expand", "閉", false, "Expand / Collapse Ref Posts"))
+            $c.find("div.indent").closest(postSelector).children(".childcontents").find(".indent").append(createControlLinkTag("ref_expand", "閉", false, "Expand / Collapse Ref Posts"))
             let $expandLink = $c.find("span.ref_expand a");
             $expandLink.addClass("expand");
 
@@ -1460,12 +1542,12 @@
             if ($(this).hasClass("expand")) {
                 let tmp = closePopupDelay;
                 closePopupDelay = 2000;
-                $(this).closest("div.post").children(".childcontents").children(".childposts").css("display", "none");
+                $(this).closest(postSelector).children(".childcontents").children(".childposts").css("display", "none");
                 setTimeout(() => closePopupDelay = tmp, 0);
                 $(this).text("開");
                 $(this).removeClass("expand");
             } else {
-                $(this).closest("div.post").children(".childcontents").children(".childposts").css("display", "block");
+                $(this).closest(postSelector).children(".childcontents").children(".childposts").css("display", "block");
                 $(this).text("閉");
                 $(this).addClass("expand");
             }
@@ -1508,8 +1590,10 @@
                             .filter($p => $p.length == 1)
                             .map($p => $p.clone());
                         posts.forEach($p => $container.append($p));
-                        $container.find("div.post").after("<br>");
-                        $container.find("div.post").each((i, e) => { processPost($(e)); appendScrollOwn($(e)); });
+                        if (brSeperator) {
+                            $container.find(postSelector).after("<br>");
+                        }
+                        $container.find(postSelector).each((i, e) => { processPost($(e)); appendScrollOwn($(e)); });
                         processPopupPost($container)
                         if (posts.every($p => $p.hasClass("abone")) && _.settings.app.get().hideNgMsg) {
                             return $("<div>非表示あぼーん</div>");
@@ -1526,7 +1610,7 @@
             }
             $("body").on("mouseout", selector, createOnPopupLinkMouseOutHandler());
         };
-        refLinkPopup("div.message a.reply_link", "ref_popup");
+        refLinkPopup(`${msgSelector} a.reply_link`, "ref_popup");
 
         // あぼーんのポップアップ処理.
         let ngPopup = (selector, popupClass) => {
@@ -1534,9 +1618,8 @@
                 return createOnShowPopupHandler(popupClass,
                     async $a => {
                         let $inner = $(`<div class="thread"></div>`).attr("data-url", $a.closest(".thread").attr("data-url"));
-                        $inner.append($a.closest("div.message.abone").clone().removeClass("abone"));
-                        $inner.find("span.abone_message").remove();
-                        $inner.find("span").removeClass("abone");
+                        let $msg = $a.closest(`${postSelector}.abone`).find(msgSelector).first().clone();
+                        $inner.append($msg);
                         $inner.append(`<br><span class="ng_match_msg">${$a.closest(".abone_message").attr("data-ng-msg")}</span>`)
                         return $inner;
                     }, { showDelay: delay, fixedPos: $a => $a.offset() });
@@ -1547,7 +1630,7 @@
             $("body").on("click", selector, popupNgHandler(popupClass, false));
             $("body").on("mouseout", selector, createOnPopupLinkMouseOutHandler());
         };
-        ngPopup("div.message.abone span.abone_message a", "abone_popup")
+        ngPopup(`${postSelector}.abone span.abone_message a`, "abone_popup")
 
         // 外部スレのレスのポップアップ処理.
         let extReplyLinkPopup = (selector, popupClass) => {
@@ -1557,11 +1640,12 @@
                     let threadUrl = $a.attr("data-thread-url");
                     let $container = $('<div class="list_container thread" />').attr("data-url", threadUrl);
                     let doc = await _.coFetchHtml($a.attr("data-popup-url") ?? $a.attr("href"), { cache: "force-cache" });
-                    $(doc).find("div.thread div.post")
+                    $(doc).find(`div.thread ${postSelector}`)
                         .toArray()
                         .forEach(p => processPost($(p).appendTo($container)));
-
-                    $container.find("div.post").after("<br>");
+                    if (brSeperator) {
+                        $container.find(postSelector).after("<br>");
+                    }
                     processPopupPost($container);
                     return {
                         inner: $container,
@@ -1585,16 +1669,16 @@
 
         // 投稿データのポップアップ前処理. 不要なデータを削除する. (ポップアップ制御のクラスや属性や一時的なクラス等)
         let processPopupPost = ($obj) => {
-            $obj.find("div.post[id]").addBack("div.post[id]").removeAttr("id");
+            $obj.find(`${postSelector}[id]`).addBack(`${postSelector}[id]`).removeAttr("id");
             $obj.find("[data-popup-id]").addBack("[data-popup-id]").removeAttr("data-popup-id");
             $obj.find(".mouse_hover").addBack(".mouse_hover").removeClass("mouse_hover");
-            $obj.find(".post.emphasis").addBack(".post.emphasis").removeClass("emphasis");
-            $obj.find(".post.new").addBack(".post.new").removeClass("new");
+            $obj.find(`${postSelector}.emphasis`).addBack(`${postSelector}.emphasis`).removeClass("emphasis");
+            $obj.find(`${postSelector}.new`).addBack(`${postSelector}.new`).removeClass("new");
             $obj.find(".popupping").addBack(".popupping").removeClass("popupping");
             return $obj;
         };
 
-        let closestPost = ($a) => $a.closest("div.post");
+        let closestPost = ($a) => $a.closest(postSelector);
 
         // ポップアップを削除.
         let removeAllPopup = (pinned = false, filter = undefined) => {
@@ -1658,7 +1742,7 @@
             return async function () {
                 let sel = window.getSelection();
                 let word = sel?.isCollapsed ? undefined : sel?.getRangeAt(0).toString();
-                if (sel && !sel.isCollapsed && sel.anchorNode === sel.focusNode && $(sel.anchorNode).closest("div.message").length > 0 && word && word.length > 1 && word.length < 10) {
+                if (sel && !sel.isCollapsed && sel.anchorNode === sel.focusNode && $(sel.anchorNode).closest(msgSelector).length > 0 && word && word.length > 1 && word.length < 10) {
                     await handler(word);
                     document.getSelection().removeAllRanges();
                     removeAllPopup();
@@ -1695,8 +1779,8 @@
         $(document).on("selectionchange", function () {
             let sel = window.getSelection();
             let word = sel?.isCollapsed ? undefined : sel?.getRangeAt(0).toString();
-            if (sel && !sel.isCollapsed && sel.anchorNode === sel.focusNode && $(sel.anchorNode).closest("div.message") && word && word.length > 1 && word.length < 10) {
-                let $msg = $(sel.anchorNode).closest("div.message");
+            if (sel && !sel.isCollapsed && sel.anchorNode === sel.focusNode && $(sel.anchorNode).closest(msgSelector) && word && word.length > 1 && word.length < 10) {
+                let $msg = $(sel.anchorNode).closest(msgSelector);
                 if (!$msg.hasClass("selecting")) {
                     $msg.addClass("selecting");
                 }
@@ -1711,11 +1795,11 @@
                 }
             } else {
                 $("div#ng_word_control").remove();
-                $("div.message.selecting").removeClass("selecting");
+                $(`${msgSelector}.selecting`).removeClass("selecting");
             }
         });
 
-        let lastPostId = () => parseInt(getPostId($("div.thread div.post:last")));
+        let lastPostId = () => parseInt(getPostId($(`div.thread ${postSelector}:last`)));
 
         // URLで最新N件表示やn-N表示の判定.
         let displayItems = {
@@ -1750,8 +1834,8 @@
         // 新着マーク削除.
         let removeNewPostMark = () => {
             removeNewPostMarkTimeout = clearTimeout(removeNewPostMarkTimeout);
-            $("div.post.new").addClass("removing");
-            setTimeout(() => $("div.post.new.removing").removeClass("removing").removeClass("new"), 3000);
+            $(`${postSelector}.new`).addClass("removing");
+            setTimeout(() => $(`${postSelector}.new.removing`).removeClass("removing").removeClass("new"), 3000);
         }
 
         // 新着レスの取得と追加処理.
@@ -1765,10 +1849,12 @@
                 try {
                     let doc = await fetchHtml(url, { cache: "no-cache" })
                     let $thread = $(doc).find("div.thread");
-                    $thread.children().not("div.post").remove();
-                    $thread.find("div.post").after("<br>");
-                    if ($thread.find("div.post").length > 0) {
-                        let postArray = [].concat($("div.thread div.post").toArray()).concat($thread.find("div.post").toArray())
+                    $thread.children().not(postSelector).remove();
+                    if (brSeperator) {
+                        $thread.find(postSelector).after("<br>");
+                    }
+                    if ($thread.find(postSelector).length > 0) {
+                        let postArray = [].concat($(`div.thread ${postSelector}`).toArray()).concat($thread.find(postSelector).toArray())
                         if (!displayItems.all && ((displayItems.last && displayItems.last > 0) || (displayItems.to && displayItems.to > 0))) {
                             let start = displayItems.without1 ? 0 : 1;
                             if (displayItems.last && displayItems.last > 0 && displayItems.last + 1 + start < postArray.length) {
@@ -1788,8 +1874,12 @@
                                 });
                             }
                         }
-                        if ($("div.thread div.post").length > 0) {
-                            $("div.thread div.post:last").next("br").after($thread.html());
+                        if ($(`div.thread ${postSelector}`).length > 0) {
+                            let $last = $(`div.thread ${postSelector}:last`);
+                            if (brSeperator) {
+                                $last = $last.next("br");
+                            }
+                            $last.after($thread.html())
                         } else {
                             $("div.thread").append($thread.html());
                         }
@@ -1930,15 +2020,15 @@
                     $("div.highlightpost").removeClass("highlightpost");
                     if (!hilighted) {
                         let val = getPostValue($p);
-                        lister(val)?.forEach(pid => $(`div.post#${pid}`).removeClass("highlightpost").addClass("highlightpost"));
+                        lister(val)?.forEach(pid => $(`${postSelector}#${pid}`).removeClass("highlightpost").addClass("highlightpost"));
                     }
                 }
             });
         }
 
-        hilight(`div.meta span.name span.koro2`, v => koro2Map[v.koro2]);
-        hilight(`div.meta span.name span.ip`, v => ipMap[v.ip]);
-        hilight(`div.meta span.uid span.uid_only`, v => idMap[v.dateAndID.id]);
+        hilight(`${metaSelector} ${nameSelector} span.koro2`, v => koro2Map[v.koro2]);
+        hilight(`${metaSelector} ${nameSelector} span.ip`, v => ipMap[v.ip]);
+        hilight(`${metaSelector} ${uidSelector} span.uid_only`, v => idMap[v.dateAndID.id]);
 
 
         // 機能用ウィンドウの位置制御.
@@ -1989,8 +2079,9 @@
         }
 
         let positionPopup = ($popup, defaultRect) => {
+            _.settings.ui.set(undefined);
             let rect = _.settings.ui.get()?.[$popup.attr("id")] ?? defaultRect ?? {
-                top: $("nav.navbar-fixed-top").outerHeight() + 1,
+                top: topMargin() + 10,
                 left: document.documentElement.clientWidth - 610,
                 width: 600,
                 height: 300
@@ -2019,7 +2110,7 @@
         (async () => {
             let $container = $('<div class="left_container">');
             let $pane = $('<div class="left_pane">');
-            $(".container.container_body").append($container);
+            $(containerSelector).append($container);
             $container.append($pane);
 
             $pane.append('<div class="caption">機能</div>');
@@ -2062,8 +2153,8 @@
 
             let $openPane = $('<div class="open_left_pane"><div class="label"></div></div>');
             if (!_.settings.app.get().showOpenLeft) {
-                $(".container.container_body").addClass("hide_left")
-                $(".container.container_body").addClass("hide_left")
+                $(containerSelector).addClass("hide_left")
+                $(containerSelector).addClass("hide_left")
             }
             $container.append($openPane);
         })();
@@ -2084,28 +2175,28 @@
             $header.find(".right").append($(createControlLinkTag("pane_hide", "Hide")).on("click", () => {
                 let height = $(".top_container").height();
                 cssAnim($pane, "draw_out").then($e => $e.removeClass("draw_out")).then($e => {
-                    $(".container.container_body").removeClass("open_top");
+                    $(containerSelector).removeClass("open_top");
                     $(".popup.pinned:not(.fixed)").each((i, e) => $(e).css("top", $(e).position().top - height));
                 });
             }));
-            $(".container.container_body").prepend($container);
+            $(containerSelector).prepend($container);
             $container.append($pane);
         })();
 
         if (_.settings.app.get().persistLeftPaneStat && _.settings.app.get().showOpenLeft) {
             let ui = _.settings.ui.get();
             if (typeof ui.leftPane !== "undefined" && ui.leftPane.open) {
-                $(".container.container_body").addClass("immediate open_left");
-                setTimeout(() => $(".container.container_body").removeClass("immediate"), 0);
+                $(containerSelector).addClass("immediate open_left");
+                setTimeout(() => $(containerSelector).removeClass("immediate"), 0);
             }
         }
 
         $(document).on("click", "div.open_left_pane", function () {
             $openPane = $(this);
-            $(".container.container_body").toggleClass("open_left");
+            $(containerSelector).toggleClass("open_left");
             if (_.settings.app.get().persistLeftPaneStat) {
                 let ui = _.settings.ui.get();
-                ui.leftPane = { open: $(".container.container_body").hasClass("open_left") };
+                ui.leftPane = { open: $(containerSelector).hasClass("open_left") };
                 _.settings.ui.set(ui);
             }
         });
@@ -2187,7 +2278,7 @@
                 $inner.data("show-frame-func", function () {
                     $pane.find(".top_pane_body").find(".feature_inner").addClass("hide_feature");
                     $inner.removeClass("hide_feature");
-                    $(".container.container_body").addClass("open_top");
+                    $(containerSelector).addClass("open_top");
                     let height = $(".top_container").height();
                     $(".popup.pinned:not(.fixed)").each((i, e) => $(e).css("top", $(e).position().top + height));
                     cssAnim($pane, "draw_in").then($e => $e.removeClass("draw_in"));
@@ -2210,13 +2301,14 @@
             let $container = $inner.find(".feature_container");
             let $table = $container.find("table.list");
 
-            initInner($inner, "thread_list", { top: $("nav.navbar-fixed-top").outerHeight() + 1, left: document.documentElement.clientWidth - 510, width: 500, height: 300 });
+            initInner($inner, "thread_list", { top: topMargin() + 10, left: document.documentElement.clientWidth - 510, width: 500, height: 300 });
 
             // 板一覧の板名クリック.
             $(document).on("click", "div.board_list .board_name a", function (e) {
                 e.preventDefault();
                 let $a = $(this);
                 $inner.find(".search input").val("");
+                $table.removeClass("searching");
                 $table.find("tbody tr").remove();
                 $container.addClass("loader");
                 $("div.board").removeClass("selected");
@@ -2242,7 +2334,7 @@
             let $container = $inner.find(".feature_container");
             let $table = $container.find("table.list");
 
-            initInner($inner, "similar_list", { top: $("nav.navbar-fixed-top").outerHeight() + 21, left: document.documentElement.clientWidth - 610, width: 600, height: 300 });
+            initInner($inner, "similar_list", { top: topMargin() + 30, left: document.documentElement.clientWidth - 610, width: 600, height: 300 });
 
             // 類似スレッド一覧クリック.
             $(document).on("click", ".feature_pane .similar_list a", function () {
@@ -2250,8 +2342,8 @@
                 $container.addClass("loader");
                 $inner.find(".error").text("");
                 $inner.data("show-frame-func")?.();
-                $inner.data("title-func")?.($("body h1").text() + " の次スレ/類似スレ");
-                _.thread.listSimilar(location.href, $("body h1").text())
+                $inner.data("title-func")?.($(titleSelector).text() + " の次スレ/類似スレ");
+                _.thread.listSimilar(location.href, $(titleSelector).text())
                     .then(threads => buildSimilarThreadsTable(threads, $table))
                     .catch(err => { console.error(err); $inner.find(".error").text(err.toString()); })
                     .finally(() => $container.removeClass("loader"));
@@ -2268,7 +2360,7 @@
             let $container = $inner.find(".feature_container");
             let $table = $container.find("table.list");
 
-            initInner($inner, "bookmark", { top: $("nav.navbar-fixed-top").outerHeight() + 41, left: document.documentElement.clientWidth - 810, width: 800, height: 200 });
+            initInner($inner, "bookmark", { top: topMargin() + 50, left: document.documentElement.clientWidth - 810, width: 800, height: 200 });
 
             let updateP;
             // このページがブックマークされていれば、更新.
@@ -2378,7 +2470,7 @@
             let $container = $inner.find(".feature_container");
             let $table = $container.find("table.list");
 
-            initInner($inner, "history", { top: $("nav.navbar-fixed-top").outerHeight() + 61, left: document.documentElement.clientWidth - 710, width: 700, height: 400 });
+            initInner($inner, "history", { top: topMargin() + 60, left: document.documentElement.clientWidth - 710, width: 700, height: 400 });
 
             let $scrollable = $inner.closest(".scrollable");
             let $resizeable = $inner.closest(".resizeable")
@@ -2478,7 +2570,7 @@
 
         let createPageTransitionParam = () => {
             let param = {};
-            param.openLeft = $(".container.container_body").hasClass("open_left");
+            param.openLeft = $(containerSelector).hasClass("open_left");
             (() => { // スレッド一覧.
                 let $inner = $(".feature_inner.thread_list");
                 let $th = $inner.find("table thead th");
@@ -2548,8 +2640,8 @@
             }
             try {
                 if (param.openLeft && _.settings.app.get().showOpenLeft) {
-                    $(".container.container_body").addClass("immediate open_left");
-                    setTimeout(() => $(".container.container_body").removeClass("immediate"), 0);
+                    $(containerSelector).addClass("immediate open_left");
+                    setTimeout(() => $(containerSelector).removeClass("immediate"), 0);
                 }
                 if (param.threadList) {
                     let $inner = $(".feature_inner.thread_list");
@@ -2676,7 +2768,7 @@
             return related;
         };
 
-        addRefData($(".thread .post"));
+        addRefData($(`.thread ${postSelector}`));
 
         let removeNewPostMarkTimeout;
 
@@ -2684,11 +2776,9 @@
         let newPostObserver = new MutationObserver(records => {
             let addedNodes = Array.from(records).flatMap(r => Array.from(r.addedNodes));
             let removedNodes = Array.from(records).flatMap(r => Array.from(r.removedNodes));
-            let addedPosts = addedNodes.map(n => $(n)).filter($n => $n.is("div"))
-                .filter($n => $n.hasClass("post"))
+            let addedPosts = addedNodes.map(n => $(n)).filter($n => $n.is(postSelector))
                 .filter($n => $n.attr("id") && getPostId($n));
-            let removedPosts = removedNodes.map(n => $(n)).filter($n => $n.is("div"))
-                .filter($n => $n.hasClass("post"))
+            let removedPosts = removedNodes.map(n => $(n)).filter($n => $n.is(postSelector))
                 .filter($n => $n.attr("id") && getPostId($n));
             let relatedPostId = Array.from(new Set([].concat(addRefData($(addedPosts.map($n => $n.get(0))))).concat(removeRefData($(removedPosts.map($n => $n.get(0)))))));
             addedPosts.forEach($p => addPostProcess($p));
@@ -2698,21 +2788,31 @@
             }
             if ($addedPosts.length > 0) {
                 let lastPid = getPostId($addedPosts.last())
-                $("div.pagestats ul.menujust li:first-child").text(`${lastPid}コメント`);
+                $(resCountSelector).text(`${lastPid}コメント`);
                 let $npb = $("div.newposts span.newpostbutton a.newpb");
                 $npb.attr("href", $npb.attr("href").replace(/([0-9]{1,4})-n$/, `${lastPid}-n`));
+
+                // 次100
+                let $next100 = $("ul.menujust li.menubottomnav:nth-child(3)");
+                $next100.find("a").each((i, e) => $(e).attr("href", $(e).attr("href").replace(/[0-9]{1,4}-[0-9]{1,4}$/, `${Math.min(1001, parseInt(lastPid)+1)}-${Math.min(1001, parseInt(lastPid)+100)}`)));
+            }
+            if (removedPosts.length > 0){
+                // 前100
+                let firstPid = getPostId(removedPosts[removedPosts.length - 1]);
+                let $prev100 = $("ul.menujust li.menubottomnav:nth-child(2)");
+                $prev100.find("a").each((i, e) => $(e).attr("href", $(e).attr("href").replace(/[0-9]{1,4}-[0-9]{1,4}$/, `${Math.max(1, parseInt(firstPid)-100)}-${firstPid}`)));
             }
             if (_.settings.app.get().autoscrollWhenNewPostLoad && $addedPosts.length > 0) {
                 $('body,html').animate({ scrollTop: $addedPosts.first().offset().top - topPos() }, 400, 'swing');
             }
-            $addedPosts.filter("div.post").each((i, e) => cssAnim($(e), "pop_in").then($e => $e.removeClass("pop_in").addClass("new")));
+            $addedPosts.filter(postSelector).each((i, e) => cssAnim($(e), "pop_in").then($e => $e.removeClass("pop_in").addClass("new")));
             processPosts(relatedPostId);
         });
 
         let addPostProcess = ($post) => {
             if ($("#rModal").length > 0) {
                 // 通報フォームがある場合、通報ボタン追加.
-                $post.find(".meta").append('<span class="ureport" style="margin-left:5px"><button class="rBtn" style="font-weight:bold;padding-top:0.1px;padding-bottom:0.1px;">&#8942;</button></span>');
+                $post.find(metaSelector).append('<span class="ureport" style="margin-left:5px"><button class="rBtn" style="font-weight:bold;padding-top:0.1px;padding-bottom:0.1px;">&#8942;</button></span>');
                 $post.find(".rBtn").click(function () {
                     F_PN = $(this).parent().parent().children(".number").html();
                     $("#fr_url").val("https:" + $("#zxcvtypo").val() + "/" + F_PN);
@@ -2727,13 +2827,13 @@
         let initialObservers = [
             // 5ch側スクリプトで余計なものが追加されたら削除する.(5chutil_inject.jsで登録しないようにしているが、念のため.)
             {
-                observe: 'div.thread div.post div.message a',
+                observe: `div.thread ${postSelector} ${msgSelector} a`,
                 target: 'div[div="thumb5ch"]:not(.gochutil)',
                 observer: t => new MutationObserver(records => $(Array.from(records).flatMap(r => Array.from(r.addedNodes))).filter(t.target).remove()),
                 prepare: t => $(t.observe).children(t.target).remove()
             },
             {
-                observe: 'div.thread div.post div.meta',
+                observe: `div.thread ${postSelector} ${metaSelector}`,
                 target: 'span.back-links:not(.gochutil)',
                 observer: t => new MutationObserver(records => $(Array.from(records).flatMap(r => Array.from(r.addedNodes))).filter(t.target).remove()),
                 prepare: t => $(t.observe).children(t.target).remove()
@@ -2808,7 +2908,7 @@
             $(top);
         } else if (parsedUrl.type == "subback") {
             $(subback);
-        } else if (parsedUrl.type == "thread") {
+        } else if (parsedUrl.type == "thread" || parsedUrl.type == "old") {
             _.injectJs();
             $(thread);
         }

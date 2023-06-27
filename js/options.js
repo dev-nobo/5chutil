@@ -24,6 +24,8 @@
         initializeCheckboxSetting("pinnablePopup");
         initializeCheckboxSetting("fixOnPinned");
         initializeCheckboxSetting("showOpenLeft");
+        initializeCheckboxSetting("hideLeft");
+        initializeCheckboxSetting("hideRight");
         initializeCheckboxSetting("persistLeftPaneStat");
         initializeCheckboxSetting("floatFeature");
 
@@ -177,6 +179,10 @@
 
     let main = () => {
         _.initOptions();
+
+        if(!_.env.controlShowOpenLeft){
+            $("#showOpenLeft").closest("li").hide();
+        }
     };
 
     await _.init();

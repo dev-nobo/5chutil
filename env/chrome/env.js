@@ -7,6 +7,7 @@ var GOCHUTIL = GOCHUTIL || {};
 
     // ====== 環境依存 userscript, chrome, firefox ======
     _.env.allowRemoteScript = false;
+    _.env.controlShowOpenLeft = true;
 
     // ==================
     let b = chrome;

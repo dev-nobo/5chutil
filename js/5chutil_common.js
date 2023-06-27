@@ -67,20 +67,61 @@ var GOCHUTIL = GOCHUTIL || {};
     Object.defineProperty(Array.prototype, "first", { value: first });
     Object.defineProperty(Array.prototype, "last", { value: last });
 
-    // Generator extension;
-    const genProto = Object.getPrototypeOf(Object.getPrototypeOf((function* () { })()));
-    Object.defineProperty(genProto, "filter", { value: function* (predicate) { for (let v of this) if (predicate(v)) yield v; } });
-    Object.defineProperty(genProto, "map", { value: function* (f) { for (let v of this) yield f(v) } });
-    Object.defineProperty(genProto, "flatten", { value: function* () { for (let v of this) for (let v2 of v) yield v2 } });
-    Object.defineProperty(genProto, "flatMap", { value: function (f) { return this.map(f).flatten(); } });
-    Object.defineProperty(genProto, "first", { value: function () { for (let v of this) return v; } });
-    Object.defineProperty(genProto, "find", { value: function (predicate) { return this.filter(predicate).first(); } });
-    Object.defineProperty(genProto, "toArray", { value: function () { return Array.from(this) } });
-    Object.defineProperty(genProto, "take", { value: function* (count) { for (let v of this) { if (--count < 0) break; yield v; } } });
+    // Iterator Wrapper;
+    IteratorWrapper = function (ite) {
+        this.ite = ite;
+    }
+    IteratorWrapper.prototype._wrapG = function (genFunc) {
+        let it = this.ite;
+        this.ite = genFunc(it)();
+        return this;
+    }
+
+    IteratorWrapper.prototype._wrap = function (it) {
+        this.ite = it;
+        return this;
+    }
+
+    IteratorWrapper.prototype.filter = function (predicate) { return this._wrapG(ite => function* () { for (let v of ite) if (predicate(v)) yield v; }); }
+    IteratorWrapper.prototype.map = function (mapper) { return this._wrapG(ite => function* () { for (let v of ite) yield mapper(v); }); };
+    IteratorWrapper.prototype.flatten = function () { return this._wrapG(ite => function* () { for (let v of ite) for (let v2 of v) yield v2 }); };
+    IteratorWrapper.prototype.flatMap = function (mapper) { return this.map(mapper).flatten() };
+    IteratorWrapper.prototype.first = function () { for (let v of this.ite) return v; };
+    IteratorWrapper.prototype.find = function (predicate) { return this.filter(predicate).first(); };
+    IteratorWrapper.prototype.toArray = function () { return Array.from(this.ite) };
+    IteratorWrapper.prototype.take = function () { return this._wrapG(ite => function* (count) { for (let v of ite) { if (--count < 0) break; yield v; } }); };
+    IteratorWrapper.prototype.each = function (action) { for (let v of this.ite) action(v); };
 
     // Element extension;
     Object.defineProperty(Element.prototype, "prevElemAll", { value: function* () { let elm = this; while (elm = elm.previousElementSibling) yield elm; } });
     // =================
+
+    _.selectors = {
+        "thread": {
+            post: "article.post",
+            meta: "details",
+            message: "section.post-content",
+            name: ".postusername",
+            number: ".postid",
+            date: ".date",
+            uid: ".uid",
+            container: "#maincontent",
+            title: "#threadtitle",
+            resCount: "div.pagestats span.metastats:first"
+        },
+        "old": {
+            post: "div.post",
+            meta: ".meta",
+            message: ".message",
+            name: ".name",
+            number: ".number",
+            date: ".date",
+            uid: ".uid",
+            container: ".container.container_body",
+            title: "h1.title",
+            resCount: "div.pagestats ul.menujust li:first-child"
+        }
+    }
 
     _.classes.setting.prototype.load = async function () {
         try {
@@ -184,7 +225,7 @@ var GOCHUTIL = GOCHUTIL || {};
     };
 
     _.classes.arraySetting.prototype.replaceString = function (str, replacer) {
-        return this.setting.reduce((p, c) => p.replaceAll(c, replacer(c)), str);
+        return this.setting.reduce((p, c) => p?.replaceAll(c, replacer(c)), str);
     };
 
     // ==================
@@ -273,8 +314,10 @@ var GOCHUTIL = GOCHUTIL || {};
         pinnablePopup: true,
         fixOnPinned: true,
         showOpenLeft: true,
-        persistLeftPaneStat: true,
+        hideLeft: false,
+        hideRight: false,
         floatFeature: false,
+        persistLeftPaneStat: true,
         idManyCount: 5,
         koro2ManyCount: 5,
         ipManyCount: 5,
@@ -315,7 +358,11 @@ var GOCHUTIL = GOCHUTIL || {};
 
         init: async function () {
             await Promise.all([this.ng.init(), this.app.load(), this.ui.load(), this.pageTransitionParam.load()]);
-            this.app.set(Object.assign(appSetting, this.app.get()));
+            let settings = Object.assign(appSetting, this.app.get());
+            if (!_.env.controlShowOpenLeft) {
+                settings.showOpenLeft = true;
+            }
+            this.app.set(settings);
         },
 
         reset: async function () {
@@ -331,7 +378,7 @@ var GOCHUTIL = GOCHUTIL || {};
                     .flatMap(m => m[0].charCodeAt(0) <= 0xFE ? [m[0]] : Array.from({ length: m[0].length - n + 1 }, (_, i) => i).map(i => m[0].substring(i, i + n))));
             },
 
-            cosineSimilarity: function (vec1, vec2) {
+            cosine: function (vec1, vec2) {
                 let dot = (vec1, vec2) => vec1.map((v, i) => vec1[i] * vec2[i]).reduce((p, c) => p + c, 0.0);
                 let abs = vec => Math.sqrt(vec.reduce((p, c) => p + (c * c), 0.0));
                 return dot(vec1, vec2) / (abs(vec1) * abs(vec2));
@@ -343,7 +390,7 @@ var GOCHUTIL = GOCHUTIL || {};
                 let rGram = this.ngramize(right, 2);
                 let marged = Array.from(new Set(Array.from(lGram).concat(Array.from(rGram))));
                 let vec = gram => marged.map(g => gram.has(g) ? 1 : 0);
-                return this.cosineSimilarity(vec(lGram), vec(rGram));
+                return this.cosine(vec(lGram), vec(rGram));
             }
         },
 
@@ -361,9 +408,10 @@ var GOCHUTIL = GOCHUTIL || {};
                 url = url.slice(0, url.indexOf("?"));
             }
             let mThreadUrl = url.match(/^(?<protocol>https?):\/\/(?<subDomain>[^./]+?)\.(?<domain>[^./]+\.[^./]+?)\/test\/read.cgi\/(?<boardId>[^/]+)\/(?<threadId>[0-9]{10})(\/(?<resLink>(l(?<last>[0-9]{1,3})|(?<from>[0-9]{0,3})-(?<to>[0-9]{0,3})|(?<num>[0-9]{1,3}))(?<without1>[nN]?))|.*)/);
+            let mOldThreadUrl = url.match(/^(?<protocol>https?):\/\/(?<subDomain>[^./]+?)\.(?<domain>[^./]+\.[^./]+?)\/test\/read.cgi\/c\/(?<boardId>[^/]+)\/(?<threadId>[0-9]{10})(\/(?<resLink>(l(?<last>[0-9]{1,3})|(?<from>[0-9]{0,3})-(?<to>[0-9]{0,3})|(?<num>[0-9]{1,3}))(?<without1>[nN]?))|.*)/);
             let mTopUrl = url.match(/^(?<protocol>https?):\/\/(?<subDomain>[^./]+?)\.(?<domain>[^./]+\.[^./]+?)\/(?<boardId>[^/]+?)\/(\?.*|)$/);
             let mSubbackUrl = url.match(/^(?<protocol>https?):\/\/(?<subDomain>[^./]+?)\.(?<domain>[^./]+\.[^./]+?)\/(?<boardId>[^/]+?)\/subback.html$/);
-            let pat = [{ m: mThreadUrl, type: "thread", toUrl: "toThread" }, { m: mTopUrl, type: "top", toUrl: "toTop" }, { m: mSubbackUrl, type: "subback", toUrl: "toSubback" }].find(e => e.m);
+            let pat = [{ m: mThreadUrl, type: "thread", toUrl: "toThread" }, { m: mOldThreadUrl, type: "old", toUrl: "toOldThread" }, { m: mTopUrl, type: "top", toUrl: "toTop" }, { m: mSubbackUrl, type: "subback", toUrl: "toSubback" }].find(e => e.m);
             if (!pat) {
                 this._cacheUrl[origUrl] = null;
                 return;
@@ -376,6 +424,7 @@ var GOCHUTIL = GOCHUTIL || {};
             ret.toSubback = function () { return `${this.toTop()}subback.html`; };
             ret.toTop = function () { return `${this.protocol}://${this.subDomain}.${this.domain}/${this.boardId}/`; };
             ret.toThread = function (threadId) { return `${this.protocol}://${this.subDomain}.${this.domain}/test/read.cgi/${this.boardId}/${threadId ?? this.threadId}/`; };
+            ret.toOldThread = function (threadId) { return `${this.protocol}://${this.subDomain}.${this.domain}/test/read.cgi/c/${this.boardId}/${threadId ?? this.threadId}/`; };
             ret.toResUrl = function (threadId, resLink) { return this.toThread(threadId) + (resLink ?? this.resLink ?? "1"); };
             ret.normalize = function () {
                 return this[this.toUrl]();
@@ -388,14 +437,15 @@ var GOCHUTIL = GOCHUTIL || {};
             return this.parseUrl(url)?.normalize();
         },
 
-        parseDoc: function (doc, normalizedUrl) {
-            let resCount = parseInt(doc.querySelectorAll("div.post")?.last()?.querySelector("div.meta span.number")?.textContent);
-            let firstDate = Date.parseString(doc.querySelectorAll("div.post")?.first()?.querySelector("span.date")?.textContent, "yyyy/MM/dd\\(.\\) HH:mm:ss");
-            let lastDate = Date.parseString(doc.querySelectorAll(resCount >= 1000 ? "#\\31 000" : "div.post")?.last()?.querySelector("span.date")?.textContent, "yyyy/MM/dd\\(.\\) HH:mm:ss");
+        parseDoc: function (doc, parsedUrl) {
+            const curSel = _.selectors?.[parsedUrl.type];
+            let resCount = parseInt(doc.querySelectorAll(curSel.post)?.last()?.querySelector(`${curSel.meta} ${curSel.number}`)?.textContent);
+            let firstDate = Date.parseString(doc.querySelectorAll(curSel.post)?.first()?.querySelector(curSel.date)?.textContent, "yyyy/MM/dd\\(.\\) HH:mm:ss");
+            let lastDate = Date.parseString(doc.querySelectorAll(resCount >= 1000 ? "#\\31 000" : curSel.post)?.last()?.querySelector(curSel.date)?.textContent, "yyyy/MM/dd\\(.\\) HH:mm:ss");
             let now = new Date();
             return {
-                url: normalizedUrl,
-                title: doc.querySelector("h1.title")?.textContent?.replaceAll("\n", ""),
+                url: parsedUrl.normalize(),
+                title: doc.querySelector(curSel.title)?.textContent?.replaceAll("\n", ""),
                 resCount: resCount,
                 firstCommentDate: firstDate?.getTime(),
                 lastCommentDate: lastDate?.getTime(),
@@ -438,11 +488,12 @@ var GOCHUTIL = GOCHUTIL || {};
 
         add: async function (url, doc) {
             await this.load();
-            let normalizedUrl = _.util.normalizeUrl(url);
+            let parsedUrl = _.util.parseUrl(url);
+            let normalizedUrl = parsedUrl.normalize();
             if (!normalizedUrl) {
                 throw new Error("invalied url");
             }
-            let history = _.util.parseDoc(doc, normalizedUrl);
+            let history = _.util.parseDoc(doc, parsedUrl);
             history.key = this.newKey();
             let setting = this.settings.get();
             setting.histories.push(history);
@@ -489,7 +540,7 @@ var GOCHUTIL = GOCHUTIL || {};
             await this.load();
             let bm = this.find(location.href);
             if (bm) {
-                let current = _.util.parseDoc(document, _.util.normalizeUrl(location.href));
+                let current = _.util.parseDoc(document, _.util.parseUrl(location.href));
                 if (current.resCount > bm.resCount) {
                     let setting = this.settings.get();
                     Object.assign(this.urlMap[bm.url], bm);
@@ -517,7 +568,8 @@ var GOCHUTIL = GOCHUTIL || {};
         },
 
         add: async function (url, doc, name) {
-            let normalizedUrl = _.util.normalizeUrl(url);
+            let parsedUrl = _.util.parseUrl(url);
+            let normalizedUrl = parsedUrl?.normalize();
             if (!normalizedUrl) {
                 throw new Error("invalied url");
             }
@@ -530,7 +582,7 @@ var GOCHUTIL = GOCHUTIL || {};
             if (this.urlMap[normalizedUrl]) {
                 throw new Error("already resistered");
             }
-            let bm = _.util.parseDoc(doc, normalizedUrl);
+            let bm = _.util.parseDoc(doc, parsedUrl);
             bm.name = name;
             bm.lastResCount = bm.resCount;
             let setting = this.settings.get();
@@ -543,7 +595,8 @@ var GOCHUTIL = GOCHUTIL || {};
         },
 
         update: async function (url, doc) {
-            let normalizedUrl = _.util.normalizeUrl(url);
+            let parsedUrl = _.util.parseUrl(url);
+            let normalizedUrl = parsedUrl?.normalize();
             if (!normalizedUrl) {
                 throw new Error("invalied url");
             }
@@ -556,7 +609,7 @@ var GOCHUTIL = GOCHUTIL || {};
             if (!this.urlMap[normalizedUrl]) {
                 throw new Error("already deleted");
             }
-            let bm = _.util.parseDoc(doc, normalizedUrl);
+            let bm = _.util.parseDoc(doc, parsedUrl);
             this.urlMap[bm.url].lastResCount = this.urlMap[bm.url].resCount;
             bm.registerDate = this.urlMap[bm.url].registerDate;
             let setting = this.settings.get();
@@ -666,7 +719,7 @@ var GOCHUTIL = GOCHUTIL || {};
                     url: e.getAttribute("href"),
                     parsedUrl: _.util.parseUrl(e.getAttribute("href")),
                     name: e.textContent,
-                    genre: e.prevElemAll().find(e => e.tagName.toLowerCase() == "b")?.textContent
+                    genre: (new IteratorWrapper(e.prevElemAll()).find(e => e.tagName.toLowerCase() == "b"))?.textContent
                 }))
                 .filter(e => e.parsedUrl && e.parsedUrl.domain == "5ch.net") // bbspink は除外.
                 .map(e => ({ url: e.parsedUrl.normalize(), name: e.name, genre: e.genre, subDomain: e.parsedUrl.subDomain, domain: e.parsedUrl.domain, boardId: e.parsedUrl.boardId, originalUrl: e.url }))
