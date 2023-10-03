@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         5chutil
 // @namespace    5chutil
-// @version      0.1.1.19
+// @version      0.1.1.20
 // @description  5ch のスレッドページに NG や外部コンテンツ埋め込み等の便利な機能を追加する
 // @author       5chutil dev
 // @match        *://*.5ch.net/test/read.cgi/*
@@ -113,7 +113,25 @@ var GOCHUTIL = GOCHUTIL || {};
         document.documentElement?.appendChild(scr);
     }
 
-    _.coFetchHtml = (url, option) => {
+    _.coFetchHtml = async (url, option) => {
+        let resp = await _.coFetch("arraybuffer", url, option);
+        let ab = resp.response;
+        let charset = resp.responseHeaders.match(/charset=([a-zA-Z0-9_\-]+)/m)?.[1] ?? "UTF-8";
+        let html = await new TextDecoder(charset).decode(ab);
+        let mMeta = html.match(/<meta .*charset="?([a-zA-Z0-9_\-]+)"?/i);
+        if (mMeta && mMeta[1] != charset) {
+            // HTMLのMetaタグで指定されていて、Headerのcharsetと違うので読み直し.
+            html = await new TextDecoder(mMeta[1]).decode(ab);
+        }
+        return new DOMParser().parseFromString(html, "text/html");
+    }
+
+    _.coFetchJson = async (url, option) => {
+        let resp = await _.coFetch("json", url, option);
+        return resp.response;
+    }
+
+    _.coFetch = (type, url, option) => {
         let headers = {};
         if (option?.cache == "force-cache") {
             headers["Cache-Control"] = "max-age=public, max-age=604800, immutable";
@@ -123,18 +141,10 @@ var GOCHUTIL = GOCHUTIL || {};
                 method: "GET",
                 url: url,
                 headers: headers,
-                responseType: "arraybuffer",
+                responseType: type,
                 onload: resp => {
                     if (200 <= resp.status && resp.status < 300) {
-                        let ab = resp.response;
-                        let charset = resp.responseHeaders.match(/charset=([a-zA-Z0-9_\-]+)/m)?.[1] ?? "UTF-8";
-                        let html = new TextDecoder(charset).decode(ab);
-                        let mMeta = html.match(/<meta .*charset="?([a-zA-Z0-9_\-]+)"?/i);
-                        if (mMeta && mMeta[1] != charset) {
-                            // HTMLのMetaタグで指定されていて、Headerのcharsetと違うので読み直し.
-                            html = new TextDecoder(mMeta[1]).decode(ab);
-                        }
-                        resolve(new DOMParser().parseFromString(html, "text/html"));
+                        resolve(resp);
                     } else {
                         reject(new Error(`http status error. response http status code : ${resp.status}`));
                     }

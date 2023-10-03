@@ -35,7 +35,17 @@ var GOCHUTIL = GOCHUTIL || {};
     };
 
     _.coFetchHtml = async (url, option) => {
-        let resp = await b.runtime.sendMessage({ function: "coFetchHtml", params: { url: url, option: option } });
+        let resp = await _.coFetch("coFetchHtml",url, option);
+        return new DOMParser().parseFromString(resp.html, "text/html");
+    }
+
+    _.coFetchJson = async (url, option) => {
+        let resp = await _.coFetch("coFetchJson",url, option);
+        return resp.json;
+    }
+
+    _.coFetch = async (func, url, option) => {
+        let resp = await b.runtime.sendMessage({ function: func, params: { url: url, option: option } });
         if (resp.reject) {
             throw new Error(resp.reject.message);
         }
@@ -44,7 +54,7 @@ var GOCHUTIL = GOCHUTIL || {};
             e.status = resp.resolve.status;
             throw e;
         }
-        return new DOMParser().parseFromString(resp.resolve.html, "text/html");
+        return resp.resolve;
     }
     // ==================
 

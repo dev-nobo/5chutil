@@ -296,6 +296,7 @@
     height: auto;
     width: auto;
     background-color: #fff;
+    filter: drop-shadow(0px 0px 6px rgba(0, 0, 0, 0.5));
 }
 
 .gochutil.gochutilthread.old div.popup{

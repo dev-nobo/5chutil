@@ -8,7 +8,7 @@
     }
 
     funcs.coFetchHtml = async function (params, sender) {
-        let resp = await fetch(params.url, params.option)
+        let resp = await fetch(params.url, params.option);
         let ab = await resp.arrayBuffer();
         let charset = resp.headers.get("content-type").match(/charset=([a-zA-Z0-9_\-]+)/)?.[1] ?? "UTF-8";
         let html = await new TextDecoder(charset).decode(ab);
@@ -18,6 +18,12 @@
             html = await new TextDecoder(mMeta[1]).decode(ab);
         }
         return { html: html, status: resp.status, statusText: resp.statusText, ok: resp.ok };
+    };
+
+    funcs.coFetchJson = async function (params, sender) {
+        let resp = await fetch(params.url, params.option);
+        let json = await resp.json(); 
+        return { json: json, status: resp.status, statusText: resp.statusText, ok: resp.ok };
     };
 
     b.runtime.onMessage.addListener(function (request, sender, sendResponse) {

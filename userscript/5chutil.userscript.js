@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         5chutil
 // @namespace    5chutil
-// @version      0.1.1.19
+// @version      0.1.1.20
 // @description  5ch のスレッドページに NG や外部コンテンツ埋め込み等の便利な機能を追加する
 // @author       5chutil dev
 // @match        *://*.5ch.net/test/read.cgi/*
@@ -369,6 +369,7 @@ var GOCHUTIL = GOCHUTIL || {};
     height: auto;
     width: auto;
     background-color: #fff;
+    filter: drop-shadow(0px 0px 6px rgba(0, 0, 0, 0.5));
 }
 
 .gochutil.gochutilthread.old div.popup{
@@ -1736,7 +1737,25 @@ span.notes {
         document.documentElement?.appendChild(scr);
     }
 
-    _.coFetchHtml = (url, option) => {
+    _.coFetchHtml = async (url, option) => {
+        let resp = await _.coFetch("arraybuffer", url, option);
+        let ab = resp.response;
+        let charset = resp.responseHeaders.match(/charset=([a-zA-Z0-9_\-]+)/m)?.[1] ?? "UTF-8";
+        let html = await new TextDecoder(charset).decode(ab);
+        let mMeta = html.match(/<meta .*charset="?([a-zA-Z0-9_\-]+)"?/i);
+        if (mMeta && mMeta[1] != charset) {
+            // HTMLのMetaタグで指定されていて、Headerのcharsetと違うので読み直し.
+            html = await new TextDecoder(mMeta[1]).decode(ab);
+        }
+        return new DOMParser().parseFromString(html, "text/html");
+    }
+
+    _.coFetchJson = async (url, option) => {
+        let resp = await _.coFetch("json", url, option);
+        return resp.response;
+    }
+
+    _.coFetch = (type, url, option) => {
         let headers = {};
         if (option?.cache == "force-cache") {
             headers["Cache-Control"] = "max-age=public, max-age=604800, immutable";
@@ -1746,18 +1765,10 @@ span.notes {
                 method: "GET",
                 url: url,
                 headers: headers,
-                responseType: "arraybuffer",
+                responseType: type,
                 onload: resp => {
                     if (200 <= resp.status && resp.status < 300) {
-                        let ab = resp.response;
-                        let charset = resp.responseHeaders.match(/charset=([a-zA-Z0-9_\-]+)/m)?.[1] ?? "UTF-8";
-                        let html = new TextDecoder(charset).decode(ab);
-                        let mMeta = html.match(/<meta .*charset="?([a-zA-Z0-9_\-]+)"?/i);
-                        if (mMeta && mMeta[1] != charset) {
-                            // HTMLのMetaタグで指定されていて、Headerのcharsetと違うので読み直し.
-                            html = new TextDecoder(mMeta[1]).decode(ab);
-                        }
-                        resolve(new DOMParser().parseFromString(html, "text/html"));
+                        resolve(resp);
                     } else {
                         reject(new Error(`http status error. response http status code : ${resp.status}`));
                     }
@@ -2535,7 +2546,7 @@ var GOCHUTIL = GOCHUTIL || {};
             let cache = await this.settings.get();
             let expire = new Date();
             expire.setDate(expire.getDate() - 1);
-            if (cache && cache.genres && cache.lastUpdate && cache.lastUpdate > expire.getTime()) {
+            if (cache && cache.genres && cache.lastUpdate && cache.lastUpdate > expire.getTime() && 'lastModify' in cache) {
                 // await this.load();
                 return cache.genres;
             } else {
@@ -2546,29 +2557,24 @@ var GOCHUTIL = GOCHUTIL || {};
             this.settings.reset();
         },
         load: async function () {
-            let doc = await _.coFetchHtml("https://menu.5ch.net/bbsmenu.html");
+            let resp = await _.coFetchJson("https://menu.5ch.net/bbsmenu.json");
             console.log("load bbsmenu");
-            let genres = Array.from(doc.querySelectorAll("body a"))
-                .map(e => ({
-                    url: e.getAttribute("href"),
-                    parsedUrl: _.util.parseUrl(e.getAttribute("href")),
-                    name: e.textContent,
-                    genre: (new IteratorWrapper(e.prevElemAll()).find(e => e.tagName.toLowerCase() == "b"))?.textContent
-                }))
-                .filter(e => e.parsedUrl && e.parsedUrl.domain == "5ch.net") // bbspink は除外.
-                .map(e => ({ url: e.parsedUrl.normalize(), name: e.name, genre: e.genre, subDomain: e.parsedUrl.subDomain, domain: e.parsedUrl.domain, boardId: e.parsedUrl.boardId, originalUrl: e.url }))
-                .reduce((p, c) => {
-                    let boards = [];
-                    if (p.length == 0 || p[p.length - 1].name != c.genre) {
-                        p.push({ name: c.genre, boards: boards });
-                    } else {
-                        boards = p[p.length - 1].boards;
-                    }
-                    boards.push(c);
-                    return p;
-                }, []);
-            genres = genres.filter(g => g.name).filter(g => g.boards.length > 0);
-            await this.settings.set({ lastUpdate: new Date().getTime(), genres: genres });
+            let genres = resp.menu_list.map(c => ({
+                name: c.category_name,
+                boards: c.category_content
+                    .map(b => (b.pu = _.util.parseUrl(b.url), b))
+                    .filter(b => b.pu && b.pu.domain == "5ch.net") // bbspink は除外.
+                    .map(b => ({
+                        url: b.pu.normalize(),
+                        name: b.board_name,
+                        genre: c.category_name,
+                        subDomain: b.pu.subDomain,
+                        domain: b.pu.domain,
+                        boardId: b.pu.boardId,
+                        originalUrl: b.url
+                    }))
+            })).filter(g => g.name).filter(g => g.boards.length > 0);
+            await this.settings.set({ lastUpdate: new Date().getTime(), genres: genres, lastModify: parseInt(resp.last_modify)});
             return genres;
         }
     }
